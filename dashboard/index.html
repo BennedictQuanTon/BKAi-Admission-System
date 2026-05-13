@@ -1,0 +1,280 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content="BKAi Monitoring Dashboard — Theo dõi hiệu suất hệ thống Tư vấn Tuyển sinh Bách Khoa" />
+  <title>BKAi — Monitoring Dashboard</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/style.css" />
+</head>
+<body>
+  <div id="app">
+    <!-- Animated background -->
+    <div class="bg-grid"></div>
+    <div class="bg-glow bg-glow-1"></div>
+    <div class="bg-glow bg-glow-2"></div>
+    <div class="bg-glow bg-glow-3"></div>
+
+    <!-- Top Navigation -->
+    <header class="top-bar" id="topBar">
+      <div class="top-bar-left">
+        <div class="logo">
+          <div class="logo-icon">BK</div>
+          <div class="logo-text">
+            <span class="logo-title">BKAi</span>
+            <span class="logo-subtitle">Monitoring Dashboard</span>
+          </div>
+        </div>
+      </div>
+      <div class="top-bar-center">
+        <div class="health-badge" id="healthBadge">
+          <span class="health-dot"></span>
+          <span class="health-text">Đang kiểm tra...</span>
+        </div>
+      </div>
+      <div class="top-bar-right">
+        <div class="refresh-control">
+          <label class="refresh-label" for="refreshInterval">Tự động cập nhật:</label>
+          <select id="refreshInterval" class="refresh-select">
+            <option value="5000">5 giây</option>
+            <option value="10000" selected>10 giây</option>
+            <option value="30000">30 giây</option>
+            <option value="60000">1 phút</option>
+            <option value="0">Tắt</option>
+          </select>
+        </div>
+        <button class="refresh-btn" id="refreshBtn" title="Cập nhật ngay">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <polyline points="23 4 23 10 17 10"/>
+            <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/>
+          </svg>
+        </button>
+        <div class="last-updated" id="lastUpdated">--</div>
+      </div>
+    </header>
+
+    <!-- Dashboard Content -->
+    <main class="dashboard-main" id="dashboardMain">
+
+      <!-- KPI Cards Row -->
+      <section class="kpi-row" id="kpiRow">
+        <div class="kpi-card" id="kpiTotal">
+          <div class="kpi-icon kpi-icon-total">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+            </svg>
+          </div>
+          <div class="kpi-body">
+            <div class="kpi-value" id="totalQuestions">0</div>
+            <div class="kpi-label">Tổng câu hỏi</div>
+          </div>
+        </div>
+
+        <div class="kpi-card" id="kpiLiked">
+          <div class="kpi-icon kpi-icon-liked">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M14 9V5a3 3 0 0 0-3-3l-4 9v11h11.28a2 2 0 0 0 2-1.7l1.38-9a2 2 0 0 0-2-2.3H14z"/>
+              <path d="M7 22H4a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2h3"/>
+            </svg>
+          </div>
+          <div class="kpi-body">
+            <div class="kpi-value" id="likedCount">0</div>
+            <div class="kpi-label">Hài lòng</div>
+          </div>
+          <div class="kpi-badge kpi-badge-success" id="likedRate">0%</div>
+        </div>
+
+        <div class="kpi-card" id="kpiDisliked">
+          <div class="kpi-icon kpi-icon-disliked">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M10 15V19a3 3 0 0 0 3 3l4-9V2H5.72a2 2 0 0 0-2 1.7l-1.38 9a2 2 0 0 0 2 2.3H10z"/>
+              <path d="M17 2h3a2 2 0 0 1 2 2v7a2 2 0 0 1-2 2h-3"/>
+            </svg>
+          </div>
+          <div class="kpi-body">
+            <div class="kpi-value" id="dislikedCount">0</div>
+            <div class="kpi-label">Chưa hài lòng</div>
+          </div>
+          <div class="kpi-badge kpi-badge-danger" id="dislikedRate">0%</div>
+        </div>
+
+        <div class="kpi-card" id="kpiUnrated">
+          <div class="kpi-icon kpi-icon-unrated">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="12" cy="12" r="10"/>
+              <line x1="12" y1="8" x2="12" y2="12"/>
+              <line x1="12" y1="16" x2="12.01" y2="16"/>
+            </svg>
+          </div>
+          <div class="kpi-body">
+            <div class="kpi-value" id="unratedCount">0</div>
+            <div class="kpi-label">Chưa đánh giá</div>
+          </div>
+        </div>
+
+        <div class="kpi-card" id="kpiAvgTime">
+          <div class="kpi-icon kpi-icon-time">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="12" cy="12" r="10"/>
+              <polyline points="12 6 12 12 16 14"/>
+            </svg>
+          </div>
+          <div class="kpi-body">
+            <div class="kpi-value" id="avgResponseTime">0s</div>
+            <div class="kpi-label">TB thời gian trả lời</div>
+          </div>
+        </div>
+
+        <div class="kpi-card" id="kpiCacheHit">
+          <div class="kpi-icon kpi-icon-cache">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>
+            </svg>
+          </div>
+          <div class="kpi-body">
+            <div class="kpi-value" id="cacheHitRate">0%</div>
+            <div class="kpi-label">Cache hit rate</div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Charts Row -->
+      <section class="charts-row">
+        <div class="chart-card" id="chartSatisfaction">
+          <div class="card-header">
+            <h2 class="card-title">Mức độ hài lòng</h2>
+            <span class="card-badge">Pie Chart</span>
+          </div>
+          <div class="chart-container">
+            <canvas id="satisfactionChart"></canvas>
+          </div>
+        </div>
+
+        <div class="chart-card" id="chartTimings">
+          <div class="card-header">
+            <h2 class="card-title">Thời gian xử lý</h2>
+            <span class="card-badge">Bar Chart</span>
+          </div>
+          <div class="chart-container">
+            <canvas id="timingsChart"></canvas>
+          </div>
+        </div>
+
+        <div class="chart-card" id="chartResponseTrend">
+          <div class="card-header">
+            <h2 class="card-title">Xu hướng câu hỏi</h2>
+            <span class="card-badge">Dòng thời gian</span>
+          </div>
+          <div class="chart-container">
+            <canvas id="trendChart"></canvas>
+          </div>
+        </div>
+      </section>
+
+      <!-- Bottom Row: Recent Questions + Agent Pipeline -->
+      <section class="bottom-row">
+        <!-- Recent Questions Feed -->
+        <div class="feed-card" id="feedCard">
+          <div class="card-header">
+            <h2 class="card-title">Câu hỏi gần đây</h2>
+            <span class="card-badge" id="feedCount">0 câu hỏi</span>
+          </div>
+          <div class="feed-list" id="feedList">
+            <div class="feed-empty">
+              <span class="feed-empty-icon">📭</span>
+              <p>Chưa có câu hỏi nào</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Agent Pipeline Visualization -->
+        <div class="pipeline-card" id="pipelineCard">
+          <div class="card-header">
+            <h2 class="card-title">Agent Pipeline</h2>
+            <span class="card-badge">LangGraph Flow</span>
+          </div>
+          <div class="pipeline-container" id="pipelineContainer">
+            <div class="pipeline-flow">
+              <div class="pipeline-node pipeline-node-start">
+                <div class="node-icon">📥</div>
+                <div class="node-label">Câu hỏi</div>
+              </div>
+              <div class="pipeline-arrow">
+                <svg width="40" height="20" viewBox="0 0 40 20"><path d="M0 10 L30 10 M25 5 L30 10 L25 15" stroke="currentColor" fill="none" stroke-width="1.5"/></svg>
+              </div>
+              <div class="pipeline-node" id="nodeCache">
+                <div class="node-icon">⚡</div>
+                <div class="node-label">Cache</div>
+                <div class="node-status" id="nodeCacheStatus">—</div>
+              </div>
+              <div class="pipeline-arrow">
+                <svg width="40" height="20" viewBox="0 0 40 20"><path d="M0 10 L30 10 M25 5 L30 10 L25 15" stroke="currentColor" fill="none" stroke-width="1.5"/></svg>
+              </div>
+              <div class="pipeline-node" id="nodeRewrite">
+                <div class="node-icon">✏️</div>
+                <div class="node-label">Query Rewrite</div>
+                <div class="node-status" id="nodeRewriteStatus">—</div>
+              </div>
+              <div class="pipeline-arrow">
+                <svg width="40" height="20" viewBox="0 0 40 20"><path d="M0 10 L30 10 M25 5 L30 10 L25 15" stroke="currentColor" fill="none" stroke-width="1.5"/></svg>
+              </div>
+              <div class="pipeline-node" id="nodeRetrieval">
+                <div class="node-icon">🔍</div>
+                <div class="node-label">Retrieval</div>
+                <div class="node-status" id="nodeRetrievalStatus">—</div>
+              </div>
+              <div class="pipeline-arrow">
+                <svg width="40" height="20" viewBox="0 0 40 20"><path d="M0 10 L30 10 M25 5 L30 10 L25 15" stroke="currentColor" fill="none" stroke-width="1.5"/></svg>
+              </div>
+              <div class="pipeline-node" id="nodeGenerate">
+                <div class="node-icon">🤖</div>
+                <div class="node-label">Generate</div>
+                <div class="node-status" id="nodeGenerateStatus">—</div>
+              </div>
+              <div class="pipeline-arrow">
+                <svg width="40" height="20" viewBox="0 0 40 20"><path d="M0 10 L30 10 M25 5 L30 10 L25 15" stroke="currentColor" fill="none" stroke-width="1.5"/></svg>
+              </div>
+              <div class="pipeline-node" id="nodeReflect">
+                <div class="node-icon">🧠</div>
+                <div class="node-label">Self-Reflect</div>
+                <div class="node-status" id="nodeReflectStatus">—</div>
+              </div>
+              <div class="pipeline-arrow">
+                <svg width="40" height="20" viewBox="0 0 40 20"><path d="M0 10 L30 10 M25 5 L30 10 L25 15" stroke="currentColor" fill="none" stroke-width="1.5"/></svg>
+              </div>
+              <div class="pipeline-node pipeline-node-end">
+                <div class="node-icon">✅</div>
+                <div class="node-label">Trả lời</div>
+              </div>
+            </div>
+
+            <!-- Pipeline Legend -->
+            <div class="pipeline-legend">
+              <div class="legend-item">
+                <span class="legend-dot legend-dot-active"></span> Đang chạy
+              </div>
+              <div class="legend-item">
+                <span class="legend-dot legend-dot-done"></span> Hoàn thành
+              </div>
+              <div class="legend-item">
+                <span class="legend-dot legend-dot-skip"></span> Bỏ qua
+              </div>
+            </div>
+
+            <!-- Selected question detail -->
+            <div class="pipeline-detail" id="pipelineDetail">
+              <p class="detail-hint">Chọn câu hỏi ở bên trái để xem chi tiết pipeline</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+    </main>
+  </div>
+
+  <script type="module" src="/main.js"></script>
+</body>
+</html>

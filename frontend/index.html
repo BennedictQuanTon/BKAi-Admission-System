@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content="BKAi - Trợ lý tư vấn tuyển sinh thông minh Trường Đại học Bách khoa - ĐHQG-HCM" />
+  <title>BKAi — Tư vấn Tuyển sinh Bách Khoa</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/style.css" />
+</head>
+<body>
+  <div id="app">
+    <!-- Animated background -->
+    <div class="bg-grid"></div>
+    <div class="bg-glow bg-glow-1"></div>
+    <div class="bg-glow bg-glow-2"></div>
+
+    <!-- Sidebar -->
+    <aside class="sidebar" id="sidebar">
+      <div class="sidebar-header">
+        <div class="logo">
+          <div class="logo-icon">BK</div>
+          <div class="logo-text">
+            <span class="logo-title">BKAi</span>
+            <span class="logo-subtitle">Tư vấn Tuyển sinh</span>
+          </div>
+        </div>
+      </div>
+
+      <button class="new-chat-btn" id="newChatBtn">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+        Hội thoại mới
+      </button>
+      <a href="/voice.html" class="new-chat-btn" style="margin-top: 8px; background: rgba(99, 102, 241, 0.1); border: 1px solid rgba(99, 102, 241, 0.2); color: var(--accent-light); text-decoration: none; display: flex; align-items: center; justify-content: center; gap: 8px;">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z"></path><path d="M19 10v2a7 7 0 0 1-14 0v-2"></path><line x1="12" y1="19" x2="12" y2="23"></line><line x1="8" y1="23" x2="16" y2="23"></line></svg>
+        🎙️ Chế độ Giọng nói
+      </a>
+
+      <div class="sidebar-section">
+        <div class="section-label">Gợi ý câu hỏi</div>
+        <div class="suggestion-list" id="suggestions">
+          <button class="suggestion-item" data-query="Điểm chuẩn ngành Khoa học Máy tính năm 2025?">
+            <span class="suggestion-icon">🎯</span>
+            Điểm chuẩn KHMT 2025
+          </button>
+          <button class="suggestion-item" data-query="Học phí các chương trình tiếng Anh năm 2026-2027?">
+            <span class="suggestion-icon">💰</span>
+            Học phí chương trình TA
+          </button>
+          <button class="suggestion-item" data-query="Công thức tính điểm xét tuyển tổng hợp?">
+            <span class="suggestion-icon">📐</span>
+            Công thức xét tuyển TH
+          </button>
+          <button class="suggestion-item" data-query="Các tổ hợp xét tuyển cho ngành Kỹ thuật Cơ điện tử?">
+            <span class="suggestion-icon">⚙️</span>
+            Tổ hợp ngành Cơ điện tử
+          </button>
+          <button class="suggestion-item" data-query="Chỉ tiêu tuyển sinh ngành Trí tuệ Nhân tạo năm 2026?">
+            <span class="suggestion-icon">🤖</span>
+            Chỉ tiêu ngành AI 2026
+          </button>
+        </div>
+      </div>
+
+      <div class="sidebar-footer">
+        <div class="footer-badge">
+          <span class="status-dot"></span>
+          Fully Local — Ollama
+        </div>
+      </div>
+    </aside>
+
+    <!-- Main chat area -->
+    <main class="chat-main">
+      <!-- Header -->
+      <header class="chat-header">
+        <button class="menu-btn" id="menuBtn">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+        </button>
+        <div class="header-info">
+          <h1 class="header-title">BKAi Assistant</h1>
+          <span class="header-model" id="modelBadge">qwen2.5:7b</span>
+        </div>
+        <div class="header-stats" id="headerStats">
+          <span class="stat-chip" id="statResponseTime" title="Thời gian phản hồi">⏱ --</span>
+        </div>
+      </header>
+
+      <!-- Messages container -->
+      <div class="messages-container" id="messagesContainer">
+        <div class="messages-scroll" id="messagesScroll">
+          <!-- Welcome message -->
+          <div class="welcome-screen" id="welcomeScreen">
+            <div class="welcome-icon">🎓</div>
+            <h2 class="welcome-title">Xin chào! Tôi là <span class="accent">BKAi</span></h2>
+            <p class="welcome-desc">Trợ lý tư vấn tuyển sinh thông minh của Trường Đại học Bách khoa - ĐHQG-HCM. Hãy hỏi tôi bất cứ điều gì về tuyển sinh, ngành học, học phí, điểm chuẩn...</p>
+            <div class="welcome-chips">
+              <button class="welcome-chip" data-query="Trường Bách khoa có những ngành nào?">Các ngành đào tạo</button>
+              <button class="welcome-chip" data-query="Phương thức xét tuyển năm 2026?">Phương thức xét tuyển</button>
+              <button class="welcome-chip" data-query="Học bổng và hỗ trợ tài chính?">Học bổng & tài chính</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Input area -->
+      <div class="input-area">
+        <div class="input-container">
+          <textarea
+            id="chatInput"
+            class="chat-input"
+            placeholder="Nhập câu hỏi về tuyển sinh Bách khoa..."
+            rows="1"
+            maxlength="500"
+          ></textarea>
+          <button class="send-btn" id="sendBtn" disabled>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+          </button>
+        </div>
+        <div class="input-footer">
+          <span class="char-count"><span id="charCount">0</span>/500</span>
+          <span class="powered-by">Powered by Ollama • Fully Local</span>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <script type="module" src="/main.js"></script>
+</body>
+</html>

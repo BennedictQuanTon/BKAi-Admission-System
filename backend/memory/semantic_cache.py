@@ -1,0 +1,304 @@
+"""
+BKAi Semantic Cache (Redis).
+
+Caches Q&A pairs with semantic similarity matching.
+Liked answers are promoted to reusable cache.
+"""
+
+from __future__ import annotations
+
+import json
+import time
+import hashlib
+
+import numpy as np
+import redis
+
+from config.settings import get_settings
+from ingestion.embedder import get_embedding_model
+from utils.logger import get_logger
+
+logger = get_logger(__name__)
+
+_redis_cache: redis.Redis | None = None
+_redis_stats: redis.Redis | None = None
+
+CACHE_PREFIX = "bkai:cache:"
+STATS_PREFIX = "bkai:stats:"
+QUESTIONS_KEY = "bkai:questions"
+
+
+def get_redis_cache() -> redis.Redis:
+    """Get Redis client for semantic cache (DB 1)."""
+    global _redis_cache
+    if _redis_cache is None:
+        settings = get_settings()
+        _redis_cache = redis.Redis(
+            host="localhost", port=6379,
+            db=settings.redis.cache_db,
+            decode_responses=True,
+        )
+    return _redis_cache
+
+
+def get_redis_stats() -> redis.Redis:
+    """Get Redis client for stats tracking (DB 2)."""
+    global _redis_stats
+    if _redis_stats is None:
+        settings = get_settings()
+        _redis_stats = redis.Redis(
+            host="localhost", port=6379,
+            db=settings.redis.stats_db,
+            decode_responses=True,
+        )
+    return _redis_stats
+
+
+def _embed_query(query: str) -> list[float]:
+    """Embed a query for cache similarity comparison."""
+    model = get_embedding_model()
+    return model.encode([query], normalize_embeddings=True).tolist()[0]
+
+
+def _cosine_sim(a: list[float], b: list[float]) -> float:
+    """Compute cosine similarity between two vectors."""
+    a_np = np.array(a)
+    b_np = np.array(b)
+    return float(np.dot(a_np, b_np) / (np.linalg.norm(a_np) * np.linalg.norm(b_np) + 1e-9))
+
+
+def check_cache(query: str) -> dict | None:
+    """
+    Check semantic cache for a similar question.
+
+    Returns cached answer if:
+    1. A similar question exists (cosine >= threshold)
+    2. AND that answer has been liked (status = "liked")
+
+    Returns None on cache miss.
+    """
+    settings = get_settings()
+    threshold = settings.cache.semantic_cache_threshold
+    r = get_redis_cache()
+
+    try:
+        query_emb = _embed_query(query)
+
+        # Scan all cached entries
+        keys = r.keys(f"{CACHE_PREFIX}*")
+        best_match = None
+        best_sim = 0.0
+
+        for key in keys:
+            data = r.get(key)
+            if not data:
+                continue
+            entry = json.loads(data)
+
+            # Only return liked answers
+            if entry.get("status") != "liked":
+                continue
+
+            cached_emb = entry.get("embedding")
+            if not cached_emb:
+                continue
+
+            sim = _cosine_sim(query_emb, cached_emb)
+            if sim > best_sim and sim >= threshold:
+                best_sim = sim
+                best_match = entry
+
+        if best_match:
+            logger.info("cache_hit", similarity=round(best_sim, 4))
+            return {
+                "answer": best_match["answer"],
+                "confidence": best_match.get("confidence", 1.0),
+                "cached": True,
+                "similarity": round(best_sim, 4),
+            }
+
+    except Exception as e:
+        logger.warning("cache_check_error", error=str(e))
+
+    return None
+
+
+def store_in_cache(
+    query: str,
+    answer: str,
+    confidence: float = 0.0,
+    timings: dict | None = None,
+    sources: list[str] | None = None,
+) -> str:
+    """
+    Store a Q&A pair in the semantic cache.
+
+    Initial status is "unrated". Becomes "liked" or "disliked"
+    after user feedback.
+
+    Returns the cache key.
+    """
+    settings = get_settings()
+    r = get_redis_cache()
+
+    try:
+        query_emb = _embed_query(query)
+        cache_key = f"{CACHE_PREFIX}{hashlib.md5(query.encode()).hexdigest()}"
+
+        entry = {
+            "query": query,
+            "answer": answer,
+            "embedding": query_emb,
+            "confidence": confidence,
+            "status": "unrated",
+            "timestamp": time.time(),
+            "timings": timings or {},
+            "sources": sources or [],
+        }
+
+        r.setex(
+            cache_key,
+            settings.cache.cache_ttl_unrated,
+            json.dumps(entry, ensure_ascii=False),
+        )
+
+        logger.info("cache_stored", key=cache_key[-12:])
+        return cache_key
+
+    except Exception as e:
+        logger.warning("cache_store_error", error=str(e))
+        return ""
+
+
+def update_feedback(query: str, feedback: str) -> bool:
+    """
+    Update cache entry with user feedback.
+
+    - "like": Promotes to reusable cache with longer TTL.
+    - "dislike": Marks as rejected.
+    """
+    settings = get_settings()
+    r = get_redis_cache()
+
+    try:
+        cache_key = f"{CACHE_PREFIX}{hashlib.md5(query.encode()).hexdigest()}"
+        data = r.get(cache_key)
+        if not data:
+            return False
+
+        entry = json.loads(data)
+        entry["status"] = "liked" if feedback == "like" else "disliked"
+        entry["feedback_time"] = time.time()
+
+        ttl = (
+            settings.cache.cache_ttl_liked
+            if feedback == "like"
+            else settings.cache.cache_ttl_unrated
+        )
+
+        r.setex(cache_key, ttl, json.dumps(entry, ensure_ascii=False))
+        logger.info("feedback_updated", feedback=feedback, key=cache_key[-12:])
+        return True
+
+    except Exception as e:
+        logger.warning("feedback_error", error=str(e))
+        return False
+
+
+# ──────────────────────────────────────────────
+# Stats Tracking
+# ──────────────────────────────────────────────
+def record_question(
+    query: str,
+    answer: str,
+    response_time: float,
+    build_time: float,
+    cached: bool = False,
+    feedback: str = "unrated",
+) -> None:
+    """Record a question event for dashboard stats."""
+    r = get_redis_stats()
+
+    try:
+        entry = {
+            "query": query[:200],
+            "answer": answer[:200],
+            "response_time": response_time,
+            "build_time": build_time,
+            "cached": cached,
+            "feedback": feedback,
+            "timestamp": time.time(),
+        }
+
+        # Push to recent questions list (keep last 100)
+        r.lpush(QUESTIONS_KEY, json.dumps(entry, ensure_ascii=False))
+        r.ltrim(QUESTIONS_KEY, 0, 99)
+
+        # Increment counters
+        r.incr(f"{STATS_PREFIX}total")
+        if cached:
+            r.incr(f"{STATS_PREFIX}cache_hits")
+
+        # Track response times
+        r.lpush(f"{STATS_PREFIX}response_times", str(response_time))
+        r.ltrim(f"{STATS_PREFIX}response_times", 0, 99)
+        r.lpush(f"{STATS_PREFIX}build_times", str(build_time))
+        r.ltrim(f"{STATS_PREFIX}build_times", 0, 99)
+
+    except Exception as e:
+        logger.warning("stats_record_error", error=str(e))
+
+
+def update_question_feedback(query: str, feedback: str) -> None:
+    """Update feedback counter in stats."""
+    r = get_redis_stats()
+    try:
+        if feedback == "like":
+            r.incr(f"{STATS_PREFIX}liked")
+        elif feedback == "dislike":
+            r.incr(f"{STATS_PREFIX}disliked")
+    except Exception as e:
+        logger.warning("stats_feedback_error", error=str(e))
+
+
+def get_stats() -> dict:
+    """Get aggregated stats for the dashboard."""
+    r = get_redis_stats()
+
+    try:
+        total = int(r.get(f"{STATS_PREFIX}total") or 0)
+        liked = int(r.get(f"{STATS_PREFIX}liked") or 0)
+        disliked = int(r.get(f"{STATS_PREFIX}disliked") or 0)
+        cache_hits = int(r.get(f"{STATS_PREFIX}cache_hits") or 0)
+
+        # Compute averages
+        resp_times = r.lrange(f"{STATS_PREFIX}response_times", 0, -1)
+        build_times = r.lrange(f"{STATS_PREFIX}build_times", 0, -1)
+
+        avg_resp = (
+            sum(float(t) for t in resp_times) / len(resp_times)
+            if resp_times else 0.0
+        )
+        avg_build = (
+            sum(float(t) for t in build_times) / len(build_times)
+            if build_times else 0.0
+        )
+
+        # Recent questions
+        raw_recent = r.lrange(QUESTIONS_KEY, 0, 19)
+        recent = [json.loads(q) for q in raw_recent]
+
+        return {
+            "total_questions": total,
+            "liked": liked,
+            "disliked": disliked,
+            "unrated": max(0, total - liked - disliked),
+            "avg_response_time": round(avg_resp, 2),
+            "avg_build_time": round(avg_build, 2),
+            "cache_hit_rate": round(cache_hits / max(total, 1), 4),
+            "recent_questions": recent,
+        }
+
+    except Exception as e:
+        logger.warning("stats_get_error", error=str(e))
+        return {"total_questions": 0, "liked": 0, "disliked": 0, "unrated": 0}
