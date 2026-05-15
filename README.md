@@ -74,6 +74,29 @@ graph TB
     DASH --> RC2
 ```
 
+### 2.1. Project Directory Structure
+
+```text
+bkai2/
+├── backend/            # Python backend (FastAPI, LangGraph, ChromaDB)
+│   ├── agents/         # LangGraph agents (Orchestrator, Retrieval, etc.)
+│   ├── api/            # FastAPI routes and websocket connections
+│   ├── config/         # System settings (Pydantic BaseSettings)
+│   ├── data/           # Raw and processed data for ingestion
+│   │   ├── csv/        # Tabular data (Admission scores, quotas)
+│   │   └── raw/        # Markdown files (Policies, introductions)
+│   ├── ingestion/      # Data pipeline (Loader, Tagger, Chunker, Embedder)
+│   ├── memory/         # ChromaDB vector store and BM25 index storage
+│   ├── services/       # Core business logic (Caching, DB connections)
+│   ├── tools/          # Agent tools (Web search)
+│   ├── utils/          # Logging, formatting, and text cleaning
+│   ├── ingest.py       # CLI script to execute the ingestion pipeline
+│   └── main.py         # Entry point for the FastAPI server
+├── frontend/           # Chat interface (Vite, Vanilla JS, TailwindCSS)
+├── dashboard/          # Monitoring dashboard (Vite, Chart.js)
+└── README.md           # This technical report
+```
+
 ---
 
 ## 3. Technology Stack & Model Routing
@@ -224,6 +247,19 @@ npm install
 npm run dev
 # Open browser at: http://localhost:5174
 ```
+
+### 7.5. Updating Data & System Capacity Planning
+
+**How to Update New Data:**
+The ingestion pipeline is fully automated. You do not need to modify any code to add new knowledge to the system.
+1. **Unstructured Data (Markdown):** Place `.md` files in `backend/data/raw/`. Ensure sections are divided using `## Heading` so the chunker can properly segment the document.
+2. **Structured Data (CSV):** Place `.csv` files in `backend/data/csv/`. The system converts each row into a structured document (`Header: Value`).
+3. **Run Ingestion:** Navigate to `backend` and run `python ingest.py`. This will automatically load, tag, chunk, embed, and store the new data into ChromaDB and the BM25 index.
+
+**System Capacity & Scalability Limits:**
+- **Storage Capability:** The system utilizes ChromaDB locally, which can easily store and query hundreds of thousands of document chunks with sub-second latency. Since admission data for even multiple universities rarely exceeds a few thousand chunks, the vector database is essentially unbounded in this context.
+- **LLM Context Window Safety:** Regardless of how massive the database grows, the Hybrid Search engine retrieves only the `top_k=20` most relevant chunks per query. With Ollama's `num_ctx=8192` setting, the system will never face context window overflow or "Out of Memory" issues as the data scales.
+- **Ingestion Bottleneck:** The only limiting factor is the offline ingestion process (`python ingest.py`), which generates embeddings on the CPU. While querying in real-time is instant, generating embeddings for massive datasets (e.g., millions of rows) all at once will take considerable time. However, since this is a one-time offline process, it will never affect runtime application performance for the end-users.
 
 ---
 
