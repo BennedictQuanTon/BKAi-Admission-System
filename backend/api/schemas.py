@@ -50,6 +50,8 @@ class StatsResponse(BaseModel):
     avg_build_time: float = 0.0
     cache_hit_rate: float = 0.0
     active_sessions: int = 0
+    error_count: int = 0
+    recent_errors: list[dict] = []
     recent_questions: list[dict] = []
 
 

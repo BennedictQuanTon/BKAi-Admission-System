@@ -196,6 +196,8 @@ async def run_agent_pipeline(
         "answer": final_state.get("generated_answer", ""),
         "confidence": final_state.get("answer_confidence", 0.0),
         "issues": final_state.get("answer_issues", []),
+        "rewritten_queries": final_state.get("rewritten_queries", []),
+        "retrieval_decision": final_state.get("retrieval_decision", ""),
         "timings": {
             **final_state.get("step_timings", {}),
             "total": round(elapsed, 3),

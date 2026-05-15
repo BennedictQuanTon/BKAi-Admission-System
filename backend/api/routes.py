@@ -23,7 +23,7 @@ from api.schemas import (
 from memory.semantic_cache import (
     check_cache, store_in_cache,
     update_feedback, update_question_feedback,
-    record_question, get_stats,
+    record_question, get_stats, record_error
 )
 from memory.conversation import get_conversation_memory
 from workflows.main_graph import run_agent_pipeline
@@ -77,6 +77,7 @@ async def chat(request: ChatRequest) -> ChatResponse:
         )
     except Exception as e:
         logger.error("chat_pipeline_error", error=str(e))
+        record_error("pipeline_error", str(e))
         raise HTTPException(status_code=500, detail="Internal processing error")
 
     response_time = time.time() - t0
@@ -97,6 +98,14 @@ async def chat(request: ChatRequest) -> ChatResponse:
         response_time=response_time,
         build_time=build_time,
         cached=False,
+        trace={
+            "rewritten_queries": result.get("rewritten_queries", []),
+            "sources": result.get("sources", []),
+            "confidence": result.get("confidence", 0.0),
+            "retrieval_hops": result.get("retrieval_hops", 0),
+            "retrieval_decision": result.get("retrieval_decision", ""),
+            "step_timings": result.get("timings", {}),
+        },
     )
 
     return ChatResponse(
@@ -133,6 +142,13 @@ async def stats() -> StatsResponse:
     memory = get_conversation_memory()
     data["active_sessions"] = memory.active_sessions()
     return StatsResponse(**data)
+
+
+@router.get("/stats/history")
+async def stats_history(hours: int = 24):
+    """Get stats snapshots for trend charts."""
+    from memory.semantic_cache import get_stats_history
+    return {"history": get_stats_history(hours)}
 
 
 @router.get("/health", response_model=HealthResponse)

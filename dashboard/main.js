@@ -46,6 +46,9 @@ const elements = {
   cacheHitRate: document.getElementById("cacheHitRate"),
   likedRate: document.getElementById("likedRate"),
   dislikedRate: document.getElementById("dislikedRate"),
+  errorCount: document.getElementById("errorCount"),
+  lastErrorTime: document.getElementById("lastErrorTime"),
+  activeSessions: document.getElementById("activeSessions"),
 
   // Controls
   refreshBtn: document.getElementById("refreshBtn"),
@@ -68,7 +71,31 @@ function init() {
   initCharts();
   checkHealth();
   fetchStats();
+  fetchHistory(currentHistoryHours);
   startAutoRefresh();
+}
+
+let currentHistoryHours = 24;
+
+async function fetchHistory(hours) {
+  try {
+    const res = await fetch(`${API_BASE}/api/stats/history?hours=${hours}`);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = await res.json();
+    statsHistory = (data.history || []).map(item => {
+        const ts = item.timestamp > 1e11 ? item.timestamp : item.timestamp * 1000;
+        return {
+            ...item,
+            timestamp: ts
+        };
+    });
+    
+    if (currentStats) {
+      updateCharts(currentStats);
+    }
+  } catch (err) {
+    console.error("[Dashboard] Fetch history error:", err);
+  }
 }
 
 function setupEventListeners() {
@@ -81,6 +108,16 @@ function setupEventListeners() {
 
   elements.refreshInterval.addEventListener("change", () => {
     startAutoRefresh();
+  });
+
+  document.querySelectorAll('.time-chip').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      document.querySelectorAll('.time-chip').forEach(b => b.classList.remove('active'));
+      e.target.classList.add('active');
+      const hours = parseInt(e.target.dataset.hours, 10);
+      currentHistoryHours = hours;
+      fetchHistory(hours);
+    });
   });
 }
 
@@ -186,6 +223,17 @@ function updateKPIs(data) {
   const total = data.total_questions || 1;
   elements.likedRate.textContent = `${((data.liked / total) * 100).toFixed(0)}%`;
   elements.dislikedRate.textContent = `${((data.disliked / total) * 100).toFixed(0)}%`;
+
+  animateValue(elements.errorCount, data.error_count || 0);
+  animateValue(elements.activeSessions, data.active_sessions || 0);
+  
+  if (data.recent_errors && data.recent_errors.length > 0) {
+    const lastError = data.recent_errors[0];
+    const t = new Date(lastError.timestamp * 1000).toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" });
+    elements.lastErrorTime.textContent = t;
+  } else {
+    elements.lastErrorTime.textContent = "--";
+  }
 }
 
 function animateValue(el, newValue) {
@@ -602,35 +650,69 @@ function showPipelineDetail(q) {
       ? "👎 Chưa hài lòng"
       : "⏳ Chưa đánh giá";
 
+  const trace = q.trace || {};
+  const rewritten = trace.rewritten_queries && trace.rewritten_queries.length > 0 
+    ? trace.rewritten_queries.map(rq => `<li>${escapeHtml(rq)}</li>`).join('')
+    : "Không có";
+    
+  const sources = trace.sources && trace.sources.length > 0
+    ? trace.sources.map(s => `<div class="source-chip">📄 ${escapeHtml(s)}</div>`).join('')
+    : "Không sử dụng tài liệu";
+    
+  const timings = trace.step_timings || {};
+  let timingsHtml = "";
+  if (Object.keys(timings).length > 0) {
+    timingsHtml = `<div class="timings-grid">`;
+    for (const [step, t] of Object.entries(timings)) {
+      timingsHtml += `<div class="timing-item"><span class="timing-label">${step}</span><span class="timing-val">${t.toFixed(2)}s</span></div>`;
+    }
+    timingsHtml += `</div>`;
+  } else {
+    timingsHtml = "N/A";
+  }
+
+  const confidence = trace.confidence || 0;
+  const confColor = confidence > 0.8 ? "var(--success)" : (confidence > 0.5 ? "var(--warning)" : "var(--danger)");
+  
   elements.pipelineDetail.innerHTML = `
-    <div class="detail-content">
-      <div class="detail-row">
-        <span class="detail-label">📝 Câu hỏi:</span>
-        <span class="detail-value">${escapeHtml(q.query || "N/A")}</span>
+    <div class="detail-content trace-panel">
+      <div class="trace-header">
+        <div class="trace-badge">Trace Data</div>
+        <div class="confidence-bar-container">
+          <span class="conf-label">Confidence: ${(confidence * 100).toFixed(0)}%</span>
+          <div class="conf-bar-bg"><div class="conf-bar-fill" style="width: ${confidence * 100}%; background: ${confColor}"></div></div>
+        </div>
       </div>
-      <div class="detail-row">
-        <span class="detail-label">💬 Trả lời:</span>
-        <span class="detail-value">${escapeHtml((q.answer || "N/A").substring(0, 150))}${(q.answer || "").length > 150 ? "..." : ""}</span>
+      
+      <div class="trace-section">
+        <h4 class="trace-title">📝 Câu hỏi gốc</h4>
+        <div class="trace-box">${escapeHtml(q.query || "N/A")}</div>
       </div>
-      <div class="detail-row">
-        <span class="detail-label">⏱ Phản hồi:</span>
-        <span class="detail-value">${q.response_time ? q.response_time.toFixed(2) + "s" : "N/A"}</span>
+      
+      <div class="trace-section">
+        <h4 class="trace-title">✏️ Rewritten Queries (Hops: ${trace.retrieval_hops || 0})</h4>
+        <ul class="trace-list">${rewritten}</ul>
       </div>
-      <div class="detail-row">
-        <span class="detail-label">🔨 Build:</span>
-        <span class="detail-value">${q.build_time ? q.build_time.toFixed(2) + "s" : "N/A"}</span>
+      
+      <div class="trace-section">
+        <h4 class="trace-title">🔍 Tài liệu (Sources)</h4>
+        <div class="source-container">${sources}</div>
       </div>
-      <div class="detail-row">
-        <span class="detail-label">⚡ Cache:</span>
-        <span class="detail-value">${q.cached ? "Hit (từ cache)" : "Miss (full pipeline)"}</span>
+      
+      <div class="trace-section">
+        <h4 class="trace-title">⏱ Step Timings</h4>
+        ${timingsHtml}
       </div>
-      <div class="detail-row">
-        <span class="detail-label">⭐ Đánh giá:</span>
-        <span class="detail-value">${feedbackLabel}</span>
+
+      <div class="trace-section">
+        <h4 class="trace-title">💬 Trả lời</h4>
+        <div class="trace-box">${escapeHtml((q.answer || "N/A").substring(0, 300))}${(q.answer || "").length > 300 ? "..." : ""}</div>
       </div>
-      <div class="detail-row">
-        <span class="detail-label">🕐 Thời gian:</span>
-        <span class="detail-value">${time}</span>
+      
+      <div class="trace-meta">
+        <span class="meta-chip">⚡ Cache: ${q.cached ? "Hit" : "Miss"}</span>
+        <span class="meta-chip">⭐ Đánh giá: ${feedbackLabel}</span>
+        <span class="meta-chip">🕐 ${time}</span>
       </div>
     </div>
   `;

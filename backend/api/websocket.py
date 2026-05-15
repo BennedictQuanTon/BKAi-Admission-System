@@ -107,8 +107,19 @@ async def websocket_chat(websocket: WebSocket):
                 sources=result.get("sources"),
             )
             record_question(
-                query, result["answer"], response_time,
-                result.get("timings", {}).get("total", 0.0),
+                query=query,
+                answer=result["answer"],
+                response_time=response_time,
+                build_time=result.get("timings", {}).get("total", 0.0),
+                cached=False,
+                trace={
+                    "rewritten_queries": result.get("rewritten_queries", []),
+                    "sources": result.get("sources", []),
+                    "confidence": result.get("confidence", 0.0),
+                    "retrieval_hops": result.get("retrieval_hops", 0),
+                    "retrieval_decision": result.get("retrieval_decision", ""),
+                    "step_timings": result.get("timings", {}),
+                },
             )
 
     except WebSocketDisconnect:

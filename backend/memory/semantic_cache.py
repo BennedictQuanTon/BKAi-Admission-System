@@ -26,6 +26,8 @@ _redis_stats: redis.Redis | None = None
 CACHE_PREFIX = "bkai:cache:"
 STATS_PREFIX = "bkai:stats:"
 QUESTIONS_KEY = "bkai:questions"
+HISTORY_KEY = "bkai:stats_history"
+ERRORS_KEY = "bkai:errors"
 
 
 def get_redis_cache() -> redis.Redis:
@@ -215,6 +217,7 @@ def record_question(
     build_time: float,
     cached: bool = False,
     feedback: str = "unrated",
+    trace: dict | None = None,
 ) -> None:
     """Record a question event for dashboard stats."""
     r = get_redis_stats()
@@ -227,6 +230,7 @@ def record_question(
             "build_time": build_time,
             "cached": cached,
             "feedback": feedback,
+            "trace": trace or {},
             "timestamp": time.time(),
         }
 
@@ -245,6 +249,8 @@ def record_question(
         r.lpush(f"{STATS_PREFIX}build_times", str(build_time))
         r.ltrim(f"{STATS_PREFIX}build_times", 0, 99)
 
+        record_stats_snapshot()
+
     except Exception as e:
         logger.warning("stats_record_error", error=str(e))
 
@@ -261,6 +267,58 @@ def update_question_feedback(query: str, feedback: str) -> None:
         logger.warning("stats_feedback_error", error=str(e))
 
 
+def record_stats_snapshot() -> None:
+    """Save a point-in-time stats snapshot for trend charts."""
+    r = get_redis_stats()
+    try:
+        stats = get_stats()
+        snapshot = {
+            "total": stats["total_questions"],
+            "liked": stats["liked"],
+            "disliked": stats["disliked"],
+            "cache_hit_rate": stats["cache_hit_rate"],
+            "avg_response_time": stats["avg_response_time"],
+        }
+        timestamp = time.time()
+        r.zadd(HISTORY_KEY, {json.dumps(snapshot): timestamp})
+        # Keep last 24h only (1440 data points max if every minute)
+        cutoff = timestamp - 86400
+        r.zremrangebyscore(HISTORY_KEY, "-inf", cutoff)
+    except Exception as e:
+        logger.warning("stats_snapshot_error", error=str(e))
+
+
+def get_stats_history(hours: int = 24) -> list[dict]:
+    """Get stats history for the last N hours."""
+    r = get_redis_stats()
+    try:
+        cutoff = time.time() - (hours * 3600)
+        raw = r.zrangebyscore(HISTORY_KEY, cutoff, "+inf", withscores=True)
+        return [
+            {**json.loads(data), "timestamp": score}
+            for data, score in raw
+        ]
+    except Exception as e:
+        logger.warning("stats_history_error", error=str(e))
+        return []
+
+
+def record_error(error_type: str, message: str) -> None:
+    """Record a system error for dashboard monitoring."""
+    r = get_redis_stats()
+    try:
+        entry = {
+            "type": error_type,
+            "message": message[:200],
+            "timestamp": time.time(),
+        }
+        r.lpush(ERRORS_KEY, json.dumps(entry, ensure_ascii=False))
+        r.ltrim(ERRORS_KEY, 0, 49)  # Keep last 50 errors
+        r.incr(f"{STATS_PREFIX}errors")
+    except Exception as e:
+        logger.warning("record_error_failed", error=str(e))
+
+
 def get_stats() -> dict:
     """Get aggregated stats for the dashboard."""
     r = get_redis_stats()
@@ -270,6 +328,7 @@ def get_stats() -> dict:
         liked = int(r.get(f"{STATS_PREFIX}liked") or 0)
         disliked = int(r.get(f"{STATS_PREFIX}disliked") or 0)
         cache_hits = int(r.get(f"{STATS_PREFIX}cache_hits") or 0)
+        error_count = int(r.get(f"{STATS_PREFIX}errors") or 0)
 
         # Compute averages
         resp_times = r.lrange(f"{STATS_PREFIX}response_times", 0, -1)
@@ -288,6 +347,10 @@ def get_stats() -> dict:
         raw_recent = r.lrange(QUESTIONS_KEY, 0, 19)
         recent = [json.loads(q) for q in raw_recent]
 
+        # Recent errors
+        raw_errors = r.lrange(ERRORS_KEY, 0, 4)
+        recent_errors = [json.loads(e) for e in raw_errors] if raw_errors else []
+
         return {
             "total_questions": total,
             "liked": liked,
@@ -296,9 +359,11 @@ def get_stats() -> dict:
             "avg_response_time": round(avg_resp, 2),
             "avg_build_time": round(avg_build, 2),
             "cache_hit_rate": round(cache_hits / max(total, 1), 4),
+            "error_count": error_count,
+            "recent_errors": recent_errors,
             "recent_questions": recent,
         }
 
     except Exception as e:
         logger.warning("stats_get_error", error=str(e))
-        return {"total_questions": 0, "liked": 0, "disliked": 0, "unrated": 0}
+        return {"total_questions": 0, "liked": 0, "disliked": 0, "unrated": 0, "error_count": 0, "recent_errors": []}
