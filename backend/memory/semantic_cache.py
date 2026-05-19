@@ -35,8 +35,8 @@ def get_redis_cache() -> redis.Redis:
     global _redis_cache
     if _redis_cache is None:
         settings = get_settings()
-        _redis_cache = redis.Redis(
-            host="localhost", port=6379,
+        _redis_cache = redis.Redis.from_url(
+            settings.redis.url,
             db=settings.redis.cache_db,
             decode_responses=True,
         )
@@ -48,8 +48,8 @@ def get_redis_stats() -> redis.Redis:
     global _redis_stats
     if _redis_stats is None:
         settings = get_settings()
-        _redis_stats = redis.Redis(
-            host="localhost", port=6379,
+        _redis_stats = redis.Redis.from_url(
+            settings.redis.url,
             db=settings.redis.stats_db,
             decode_responses=True,
         )
