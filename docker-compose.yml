@@ -13,7 +13,7 @@ services:
     image: redis:7-alpine
     container_name: bkai-redis
     ports:
-      - "6379:6379"
+      - "6380:6379"   # Host 6380 to avoid conflict with local Redis on 6379
     volumes:
       - redis_data:/data
     command: redis-server --appendonly yes

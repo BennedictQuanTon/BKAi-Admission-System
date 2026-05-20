@@ -30,16 +30,33 @@ HISTORY_KEY = "bkai:stats_history"
 ERRORS_KEY = "bkai:errors"
 
 
+def _strip_db_from_url(url: str) -> str:
+    """Strip the DB number from a Redis URL so that the explicit db= kwarg is honored.
+
+    redis.Redis.from_url() silently ignores the db kwarg when the URL
+    already contains a path like /0.  Stripping it avoids that pitfall.
+    """
+    from urllib.parse import urlparse, urlunparse
+
+    parsed = urlparse(url)
+    # Remove path that looks like a DB number (e.g., /0, /1, /2)
+    if parsed.path and parsed.path.strip("/").isdigit():
+        parsed = parsed._replace(path="")
+    return urlunparse(parsed)
+
+
 def get_redis_cache() -> redis.Redis:
     """Get Redis client for semantic cache (DB 1)."""
     global _redis_cache
     if _redis_cache is None:
         settings = get_settings()
+        base_url = _strip_db_from_url(settings.redis.url)
         _redis_cache = redis.Redis.from_url(
-            settings.redis.url,
+            base_url,
             db=settings.redis.cache_db,
             decode_responses=True,
         )
+        logger.info("redis_cache_connected", db=settings.redis.cache_db)
     return _redis_cache
 
 
@@ -48,11 +65,13 @@ def get_redis_stats() -> redis.Redis:
     global _redis_stats
     if _redis_stats is None:
         settings = get_settings()
+        base_url = _strip_db_from_url(settings.redis.url)
         _redis_stats = redis.Redis.from_url(
-            settings.redis.url,
+            base_url,
             db=settings.redis.stats_db,
             decode_responses=True,
         )
+        logger.info("redis_stats_connected", db=settings.redis.stats_db)
     return _redis_stats
 
 
