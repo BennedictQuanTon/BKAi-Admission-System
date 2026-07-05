@@ -2,20 +2,20 @@
 
 > **In-Depth Technical Report - Intelligent AI Admission Consulting System**
 > **Developed by:** Long Quan Ton
-> **Objective:** Production-ready, Scalable, 100% Local (Privacy First), supports ~15 concurrent users.
-> **Version:** 1.0.0
+> **Objective:** Production-ready, Scalable, Hybrid Cloud-Local (Privacy First), supports concurrent users.
+> **Version:** 2.0.0
 
 ---
 
 ## 1. Executive Summary
 
-**BKAi** is an Artificial Intelligence (AI) system dedicated to admission consulting for Ho Chi Minh City University of Technology (HCMUT) - VNU-HCM. To solve the hallucination problem commonly found in traditional LLM/RAG systems, BKAi adopts the advanced **Multi-Agent RAG (Agentic RAG)** architecture combined with a **Semantic Caching** memory system.
+**BKAi** is an advanced Artificial Intelligence (AI) system dedicated to admission consulting for Ho Chi Minh City University of Technology (HCMUT) - VNU-HCM. To solve the hallucination problem commonly found in traditional LLM/RAG systems, BKAi adopts a **Multi-Agent RAG (Agentic RAG)** architecture combined with a high-performance **Redis Vector Semantic Caching** system.
 
 **4 Core Values Delivered:**
-1.  **Absolute Accuracy (100% Grounded):** The system is capable of self-verifying data (admission scores, tuition fees, quotas) through multiple iterations (multi-hop) before answering. It absolutely does not fabricate data.
-2.  **Ultra-Low Latency:** Thanks to the Semantic Cache mechanism, the response time for common or similar questions is reduced from ~40s-60s to just **< 0.1s**.
-3.  **Data Autonomy & Privacy (100% Local):** The entire stack (LLM, Vector DB, Cache) runs locally, ensuring that no admission data or user queries are sent to any third parties (such as OpenAI/Google).
-4.  **Comprehensive Observability:** A built-in Monitoring Dashboard tracks real-time satisfaction rates, response performance, and traffic flow.
+1.  **Absolute Accuracy (100% Grounded):** The system verifies factual data (admission scores, tuition fees, quotas) through LangGraph-driven iterative search loops (multi-hop retrieval) and a dedicated Self-Reflection auditor node. It strictly refuses to fabricate responses.
+2.  **Ultra-Low Latency:** Thanks to the Redis Stack HNSW vector semantic cache, response times for common or similar queries are reduced from ~1-3s (LLM generation) to **< 0.1s**.
+3.  **Hybrid Cloud-Local Privacy (Data Autonomy):** While LLM reasoning is handled via secure Gemini API endpoints, the entire RAG context, local document processing (PDF, DOCX, CSV, MD), vector stores (Qdrant/ChromaDB), cache, and monitoring stats remain strictly local. No corporate datasets are exposed.
+4.  **Comprehensive Observability:** A unified React-based Monitoring Dashboard tracks health metrics, query latency distributions, feedback ratios, and provides step-by-step trace visualization for agent execution.
 
 ### Screenshots
 
@@ -42,44 +42,44 @@
 
 ## 2. System Architecture
 
-The system is designed following a highly modular Microservices architecture, ensuring scalability and ease of maintenance.
+The system is built on a modular Microservices architecture, structured to decouple ingestion, retrieval, agent orchestration, caching, and presentation layers.
 
 ```mermaid
 graph TB
-    subgraph "Frontend Layer"
-        UI["Chat UI<br/>(Vite + Vanilla JS)"]
-        VOICE["Voice Interface<br/>(Web Speech API)"]
-        DASH["Monitoring Dashboard<br/>(Vite + Chart.js)"]
+    subgraph "Frontend Layer (Port 5173 / 5174)"
+        UI["Chat Interface<br/>(Vite + React + TS)"]
+        VOICE["Voice Interface<br/>(MediaRecorder + Audio APIs)"]
+        DASH["Monitoring Dashboard<br/>(Chart.js / React UI)"]
     end
 
-    subgraph "API Layer"
-        API["FastAPI Gateway<br/>(WebSocket + REST)"]
-        MW["Middleware<br/>(Rate Limit · Auth · CORS)"]
+    subgraph "API Layer (Port 8000)"
+        API["FastAPI Gateway<br/>(REST API + WebSocket /ws/chat)"]
+        MW["Middleware<br/>(Rate Limiting · CORS Whitelist)"]
     end
 
-    subgraph "Cache Layer"
-        RC["Redis Semantic Cache<br/>(Question ↔ Answer)"]
-        RC2["Redis Stats Store<br/>(Metrics · Feedback)"]
+    subgraph "Cache Layer (Port 6380)"
+        RC["Redis Vector Cache (DB 1)<br/>(HNSW KNN Semantic Cache)"]
+        RC2["Redis Stats Store (DB 2)<br/>(Metrics & Snapshots)"]
     end
 
     subgraph "Agent Orchestration (LangGraph)"
-        ORCH["Orchestrator Agent"]
-        QR["Query Rewriting Agent<br/>(HyDE + Semantic Expansion)"]
-        MHR["Multi-hop Retrieval Agent<br/>(Iterative Search)"]
-        TUA["Tool-use Agent<br/>(Web Search)"]
-        SRA["Self-reflection Agent<br/>(Critique Loop)"]
+        QR["Query Rewriter Node<br/>(Gemini Flash-Lite)"]
+        MHR["Retriever Node<br/>(Multi-hop Search)"]
+        EVAL["Evaluate Node<br/>(Sufficient Checker)"]
+        MCP["MCP Scraper Node<br/>(hcmut.edu.vn only)"]
+        GEN["Generator Node<br/>(Gemini Flash)"]
+        SRA["Self-Reflection Node<br/>(Fact Auditor)"]
     end
 
     subgraph "Retrieval Layer"
-        HS["Hybrid Search Engine<br/>(Semantic + BM25)"]
-        RR["Cross-Encoder Reranker"]
-        CHROMA["ChromaDB<br/>(Vector Store)"]
+        HS["Hybrid Search Engine<br/>(Dense + Sparse RRF)"]
+        RR["Cross-Encoder Reranker<br/>(BGE-Reranker-v2-m3)"]
+        VEC["Vector Store<br/>(Qdrant / ChromaDB)"]
     end
 
     subgraph "Data Layer"
-        RAW["Raw Docs<br/>(MD · CSV)"]
-        PROC["Processed Chunks<br/>(Semantic + Metadata)"]
-        MCP["Web Search API<br/>(hcmut.edu.vn only)"]
+        RAW["Raw Docs<br/>(MD · CSV · PDF · DOCX)"]
+        PROC["Enriched Chunks<br/>(BGE-M3 Embeddings + Metadata)"]
     end
 
     UI --> API
@@ -87,12 +87,17 @@ graph TB
     DASH --> API
     API --> MW --> RC
     RC -->|Cache Hit| API
-    RC -->|Cache Miss| ORCH
-    ORCH --> QR --> MHR --> TUA --> SRA
-    MHR --> HS --> RR --> CHROMA
-    TUA --> MCP
-    RAW --> PROC --> CHROMA
-    SRA -->|Low Confidence| MHR
+    RC -->|Cache Miss| QR
+    QR --> MHR --> EVAL
+    EVAL -->|sufficient| GEN
+    EVAL -->|need_more| MHR
+    EVAL -->|no_data| MCP
+    MCP --> GEN
+    GEN --> SRA
+    SRA -->|low confidence & iter < 2| MHR
+    SRA -->|accept / iter >= 2| API
+    MHR --> HS --> RR --> VEC
+    RAW --> PROC --> VEC
     API --> RC2
     DASH --> RC2
 ```
@@ -101,380 +106,357 @@ graph TB
 
 ```text
 bkai2/
-├── backend/            # Python backend (FastAPI, LangGraph, ChromaDB)
-│   ├── agents/         # LangGraph agents (Orchestrator, Retrieval, etc.)
-│   ├── api/            # FastAPI routes and websocket connections
-│   ├── config/         # System settings (Pydantic BaseSettings)
-│   ├── data/           # Raw and processed data for ingestion
-│   │   ├── csv/        # Tabular data (Admission scores, quotas)
-│   │   └── raw/        # Markdown files (Policies, introductions)
-│   ├── ingestion/      # Data pipeline (Loader, Tagger, Chunker, Embedder)
-│   ├── memory/         # ChromaDB vector store and BM25 index storage
-│   ├── services/       # Core business logic (Caching, DB connections)
-│   ├── tools/          # Agent tools (Web search)
-│   ├── utils/          # Logging, formatting, and text cleaning
-│   ├── Dockerfile      # Backend container definition
-│   ├── ingest.py       # CLI script to execute the ingestion pipeline
-│   └── main.py         # Entry point for the FastAPI server
-├── frontend/           # Chat interface (Vite, Vanilla JS)
-│   ├── Dockerfile      # Multi-stage build: Vite → Nginx
-│   ├── nginx.conf      # Nginx SPA configuration
-│   └── vite.config.js  # Multi-page build (index + voice)
-├── dashboard/          # Monitoring dashboard (Vite, Chart.js)
-│   ├── Dockerfile      # Multi-stage build: Vite → Nginx
-│   ├── nginx.conf      # Nginx SPA configuration
-│   └── vite.config.js  # Vite configuration
-├── docker-compose.yml  # Full-stack orchestration (4 services)
-├── docs/images/        # Screenshots and documentation assets
-└── README.md           # This technical report
+├── backend/            # Python backend (FastAPI, LangGraph, Qdrant/ChromaDB)
+│   ├── agents/         # LangGraph nodes (Query Rewriter, Retriever, Generator, Reflection, State)
+│   ├── api/            # API schemas, WebSocket handler, and REST routes
+│   ├── config/         # System settings (Pydantic) and prompt templates
+│   ├── data/           # Raw and processed knowledge base data
+│   │   ├── csv/        # Tabular data (Admission scores, majors, quotas)
+│   │   ├── raw/        # Markdown files (Admissions policies, manuals)
+│   │   ├── pdf/        # PDF documents (Official announcements)
+│   │   ├── docx/       # Microsoft Word files (Admissions guidelines)
+│   │   └── processed/  # Serialized indices (BM25 indexes)
+│   ├── evaluation/     # RAGAS evaluation suite and golden QA datasets
+│   ├── ingestion/      # Data pipeline (Loader, Metadata Tagger, Chunker, Embedder)
+│   ├── memory/         # Vector DB persistence and Redis cache connectors
+│   ├── services/       # Core services (Guardrails, Audio/Voice service, LLM Factory)
+│   ├── tools/          # Retrieval tools (Hybrid Search, Reranker, BM25, MCP Web Scraper)
+│   ├── utils/          # Vietnamese text helpers, logger, and input sanitizers
+│   ├── Dockerfile      # Backend service container definition
+│   ├── ingest.py       # CLI ingestion orchestrator
+│   └── main.py         # Entry point for the FastAPI server (lifespan manager)
+├── frontend/           # Unified client UI: Chat, Voice, and Dashboard (Vite + React + TS)
+│   ├── src/            # React codebase (App router, components, pages)
+│   ├── Dockerfile      # Multi-stage production build (Vite -> Nginx)
+│   ├── nginx.conf      # SPA routing rules for Nginx
+│   └── vite.config.ts  # Vite bundler configuration (Tailwind v4 integrated)
+├── dashboard/          # Legacy separate telemetry dashboard (Vite + Chart.js)
+│   ├── Dockerfile      # Independent dashboard container definition
+│   ├── nginx.conf      # Nginx server configurations
+│   └── vite.config.js  # Vite dev & build settings
+├── docker-compose.yml  # Multi-container orchestration config
+├── docs/images/        # Visual documentation assets and screenshots
+└── README.md           # This comprehensive guide
 ```
 
 ---
 
 ## 3. Technology Stack & Model Routing
 
-The system combines the most optimized cutting-edge technologies in the Python and JS ecosystems. To balance **Quality** and **Latency**, BKAi applies a **Model Routing** strategy - orchestrating tasks to models of appropriate sizes.
+BKAi optimizes cost, rate limits, and latency by implementing a **Model Routing** strategy, sending specialized tasks to appropriate model tiers while utilizing thread-safe rate-limiting locks.
 
 ### Detailed Tech Stack:
-*   **Language/Environment:** Python 3.11, Node.js v20+.
-*   **Agent Framework:** LangChain & LangGraph.
-*   **Backend & API:** FastAPI, Uvicorn, WebSockets.
-*   **Database:** ChromaDB (Vector Store), Redis 7 (Semantic Cache & Analytics).
-*   **UI/UX:** Vite, Vanilla JS, Chart.js.
-*   **Containerization:** Docker, Docker Compose, Nginx.
-*   **LLM Runtime:** Ollama (100% Local inference).
+*   **Backend Environment:** Python 3.11+, FastAPI, Uvicorn, WebSockets.
+*   **Agentic Orchestration:** LangGraph & LangChain Core.
+*   **Vector Engine:** Qdrant (Primary dense/sparse store) & ChromaDB (Local fallback).
+*   **Caching & Telemetry:** Redis 7 / Redis Stack (HNSW vector caching & JSON stats).
+*   **Voice Processing:** `faster-whisper` (Local Speech-to-Text) & `edge-tts` (Neural Text-to-Speech).
+*   **Frontend UI:** React 19, TypeScript, Vite, TailwindCSS v4, Recharts, Chart.js.
 
-### Model Routing Strategy:
+### Model Routing & Rate Limiting Strategy:
 
-| Agent/Task | Model Used | Design Rationale |
+| Task / Agent | Technology / Model | Design Rationale |
 | :--- | :--- | :--- |
-| **Query Rewriter** | `llama3.2` (3B) | Simple tasks (paraphrasing), requires ultra-fast response speed. |
-| **Retrieval Evaluator** | `llama3.2` (3B) | Binary evaluation (Sufficient/Insufficient), a small model is adequate. |
-| **Answer Generator** | `qwen2.5:7b` | Demands high quality, excellent Vietnamese grammar, strict adherence to formatting. |
-| **Self-Reflection** | `qwen2.5:7b` | Requires complex reasoning capabilities to catch "hallucination" errors. |
-| **Embedding** | `paraphrase-multilingual-MiniLM-L12-v2` | Lightweight (120MB), optimized for multilingual use (including Vietnamese), balances speed and Vector space quality. |
-| **Reranker** | `ms-marco-MiniLM-L-6-v2` (Cross-encoder) | Improves retrieval accuracy (Precision@K) by locally evaluating the Query-Context pair. |
+| **Query Rewriter** | `gemini-2.5-flash-lite` | Simple rewrites (HyDE + paraphrasing), optimized for speed. Enforces rate limits. |
+| **Retrieval Evaluator** | `gemini-2.5-flash-lite` | Evaluates if context is sufficient (Binary/Ternary). Low intelligence requirement. |
+| **Answer Generator** | `gemini-2.5-flash` | High-quality generation, handles markdown structures and streaming outputs. |
+| **Self-Reflection** | `gemini-2.5-flash` | Evaluates factual correctness and hallucinations. Requires higher reasoning capability. |
+| **Embedding Model** | `BAAI/bge-m3` | Multi-functional (dense + sparse), highly optimized for Vietnamese semantic search. |
+| **Reranking Engine** | `BAAI/bge-reranker-v2-m3` | Cross-Encoder model scoring query-document pairs, boosting precision. |
+| **Guardrails** | Rules + `gemini-2.5-flash-lite` | Regex pattern matching for scope boundaries, with fast LLM backup checking. |
+| **Speech-to-Text (STT)** | `faster-whisper` (`base`) | Running locally on CPU. 3-stage custom correction layer for HCMUT terminologies. |
+| **Text-to-Speech (TTS)** | `edge-tts` (`vi-VN-HoaiMyNeural`)| Cloud neural voice offering high-fidelity, natural Vietnamese speech. |
 
-> **Impact:** This routing strategy helps reduce the overall system latency by 40-60% compared to using a single large model (7B/14B) for all tasks.
+> **Rate Limit Enforcement:** To prevent exceeding Google Gemini free-tier quotas, the system implements an async thread lock (`acquire_rpm_slot`) restricting models to `10 RPM` for both Flash and Lite models (configurable in `.env`).
 
 ---
 
 ## 4. Core Module Analysis
 
 ### 4.1. Data Ingestion Pipeline
-The flow of processing unstructured (Markdown) and structured (CSV) documents into semantics-aware Vectors.
-*   **Semantic Chunker:** Does not split text mechanically (blind splitting). The algorithm recognizes header structures, preserves table formats (Table-preserving), with a max chunk size of 800 tokens and an overlap of 150 characters.
-*   **Metadata Auto-Tagger:** Each chunk is automatically labeled (`source_file`, `section_id`, `category`, `year`, `program_type`). This plays a decisive role in data Pre-filtering (e.g., exclusively searching for 2025 admission scores).
+Transforms raw files (Markdown, CSV, PDF, Word) into search-optimized vector representations:
+1.  **Document Loader:** Processes `.md` (header split), `.csv` (row-based structured documents), `.pdf` (`pypdf`), and `.docx` (`python-docx`).
+2.  **Metadata Auto-Tagger:** Automatically extracts years (e.g., `2024,2025`), major codes (3-digit codes in `100-499` range), keywords (`khoa học máy tính`, `học phí`, etc.), and detects if the document contains scores.
+3.  **Semantic Chunker:** Splits markdown/PDF/Word structures while protecting data tables (never splits mid-row). Capped at `MAX_CHUNK_CHARS = 1500` characters (~375 tokens) with a sliding overlap of `200` characters.
 
 ### 4.2. Hybrid Retrieval Engine
-Relying solely on Vector Search often fails when users ask for exact numerical values (e.g., major code `106`). BKAi resolves this using a Hybrid mechanism combined with Reranking:
+Combines semantic similarity and lexical search to prevent coordinate/code mismatches (e.g., misidentifying major code `106` for `107` due to close vector space):
 
 ```mermaid
 graph LR
-    Q["User Query"] --> VS["Vector Search<br/>(Top-20)"]
-    Q --> BM["BM25 Search<br/>(Top-20)"]
-    VS --> RRF["Reciprocal Rank<br/>Fusion (RRF)"]
+    Q["User Query"] --> EMB["BGE-M3 Embedder<br/>(Dense + Sparse)"]
+    EMB --> QDR["Qdrant Hybrid Search<br/>(Dense + Sparse RRF)"]
+    EMB --> CHR["ChromaDB Vector Search<br/>(Dense Fallback)"]
+    Q --> BM["BM25 Search<br/>(Lexical Fallback)"]
+    CHR --> RRF["RRF Fusion"]
     BM --> RRF
-    RRF --> RE["Cross-Encoder<br/>Reranker"]
-    RE --> TOP5["Top-5 Chunks to Agent"]
+    QDR --> RER["BGE Cross-Encoder Reranker"]
+    RRF --> RER
+    RER --> TOP["Top-K Chunks to Agent"]
 ```
 
+*   **Qdrant Path:** Performs native dense + sparse search with Reciprocal Rank Fusion (RRF) directly inside Qdrant.
+*   **ChromaDB Fallback:** Performs cosine similarity dense search in ChromaDB, queries `rank-bm25` (lexical search), and fuses results using Reciprocal Rank Fusion (RRF) in memory.
+*   **Cross-Encoder Reranking:** All candidates are reranked via `BAAI/bge-reranker-v2-m3` to yield the final top-k highly relevant contexts.
+
 ### 4.3. Multi-Agent Orchestration (LangGraph)
-The system's reasoning flow is not linear, but rather a State Machine with the ability to loop.
+Uses an event-driven State Machine featuring loops and conditional transitions:
 
 ```mermaid
 stateDiagram-v2
     [*] --> CheckCache
-    CheckCache --> ReturnCached: Cache HIT
+    CheckCache --> ReturnCached: Cache HIT (Liked)
     CheckCache --> QueryRewrite: Cache MISS
 
     QueryRewrite --> HybridSearch
     HybridSearch --> Rerank
     Rerank --> EvaluateResults
 
-    EvaluateResults --> MultiHop: Insufficient
-    EvaluateResults --> GenerateAnswer: Sufficient
+    EvaluateResults --> MultiHop: NEED_MORE
+    EvaluateResults --> MCPScrape: NO_DATA
+    EvaluateResults --> GenerateAnswer: SUFFICIENT
     MultiHop --> HybridSearch
 
-    EvaluateResults --> WebSearch: No local data
-    WebSearch --> GenerateAnswer
-
+    MCPScrape --> GenerateAnswer
     GenerateAnswer --> SelfReflect
-    SelfReflect --> GenerateAnswer: Low confidence
-    SelfReflect --> ReturnAnswer: High confidence
+    SelfReflect --> HybridSearch: Low confidence & Iter < 2
+    SelfReflect --> ReturnAnswer: High confidence / Iter >= 2
 
     ReturnCached --> [*]
     ReturnAnswer --> [*]
 ```
-*   **Highlight:** The *Self-Reflection Agent* acts as an "Auditor". If it detects an answer lacking factual evidence from the context, it intercepts, assigns low Confidence, and forces the system to iterate the retrieval process.
+
+*   **Multi-Hop Retrieval:** If the evaluator returns `NEED_MORE`, the system triggers an additional retrieval loop using follow-up queries (up to 3 hops).
+*   **MCP Scraper:** If the vector store has no local data (`NO_DATA`), the system executes a real-time scrap on allowed HCMUT domains (`hcmut.edu.vn`) to scrape current updates.
+*   **Selective Reflection:** The factuality check is only active for numeric/factual questions (detected via regex). Casual greetings bypass this to minimize unnecessary latency.
 
 ### 4.4. Memory & Semantic Cache Architecture
-To make the system scalable for multiple concurrent users, a multi-tier memory architecture is deployed:
-
-*   **Short-term Memory:** Sliding Window (10 turns) retains the conversational context in the FastAPI session's RAM.
-*   **Mid-term Memory (Redis Semantic Cache):** Does not perform exact keyword matching. When a new query arrives, the system calculates Cosine Similarity against cached queries. If >= 0.92, it immediately returns the previous result (<0.1s). Auto-extends Time-to-Live (TTL) for answers the user Likes (👍).
-*   **Long-term Memory:** ChromaDB and Redis Stats store immutable data and Analytics.
+Combines runtime history with database caches:
+*   **Short-term Memory:** A sliding window of the last 6 turns is maintained in the user's conversational state.
+*   **Redis Vector Semantic Cache:** Ingests user query embeddings into a Redis HNSW index using `COSINE` distance.
+*   **Feedback loop:** New Q&As are cached as `unrated` (7-day TTL). If the user likes (👍) the answer, it is promoted to `liked` (30-day TTL) and becomes available for future semantic cache hits (matching Cosine Similarity >= 0.92).
 
 ---
 
 ## 5. Security & Reliability Architecture
 
-| Layer | Enforcement Mechanism |
+| Layer / Aspect | Policy & Enforcement Mechanism |
 | :--- | :--- |
-| **Input Sanitization** | Eliminates script injection, caps maximum input length (500 chars) to prevent context window overflow. |
-| **Rate Limiting** | Managed via Middleware, allows 15 concurrent sessions, limits 30 requests/minute per IP. |
-| **CORS Policy** | Strict whitelist exclusively allowing Frontend (`5173`) and Dashboard (`5174`) origins. |
-| **Environment Sandbox** | The Web Search Tool is hard-coded to solely permit data scraping from the `hcmut.edu.vn/*` domain. |
+| **Input Sanitization** | Special character strips, script injection prevention, and a strict limit of 500 characters. |
+| **Rate Limiting** | Connection middleware caps requests to 15 per minute per client IP, preventing server overloading. |
+| **CORS Whitelist** | Restricts API access exclusively to trusted origins: `localhost:5173`, `localhost:5174`, `localhost:5175`. |
+| **Domain Guardrails** | Two stages: Regex check against known topics/off-topic triggers, followed by a `gemini-2.5-flash-lite` filter. |
+| **Scraper Sandbox** | The MCP web scraping utility is hardcoded to strictly scan domains within `hcmut.edu.vn` only. |
 
 ---
 
 ## 6. Performance Metrics & Validation
 
-Automated and manual End-to-End (E2E) testing have proven the system's reliability:
-
-*   **Ingestion Pipeline:** Processed 115 documents (MD/CSV) into 150 Semantic Chunks in `17.8s`.
-*   **Retrieval Accuracy:** **100% (5/5)**. The Reranker thoroughly resolved major code resolution errors (e.g., distinguishing between Mechatronics and Mechanics).
-*   **Cache Hit Latency:** **< 0.1s** (Bypassing the entire Agent pipeline).
-*   **Full Pipeline Latency:** `40-90s` (100% Local environment without discrete GPU).
-*   **Self-Healing:** Logged cases where Self-Reflection caught "Confidence = 0.65" errors and successfully triggered the loop to regenerate the answer.
+*   **Multi-format Ingestion:** Successfully handles raw Markdown, structured CSV rows, scanned PDF files, and Word documents in a unified pipeline.
+*   **Retrieval Precision:** Decoupled dense/sparse vectors combined with BGE reranking resolved major code differences (e.g., distinguishing Mechatronics from mechanical engineering) with high precision.
+*   **Semantic Cache Hit Latency:** **< 0.1s**, bypassing LLM processing entirely.
+*   **Agent Pipeline Latency:** Average of **1s-3s** (when utilizing Gemini API endpoints).
+*   **Self-Healing Loop:** Successfully catches factual errors, prompting retries to generate correct scores.
 
 ---
 
 ## 7. Deployment & Installation
 
-BKAi supports two deployment methods: **Docker (Recommended)** for production-ready containerized deployment, and **Manual** for local development.
-
 ### 7.1. Prerequisites
 
-| Requirement | Version | Purpose |
+| Tool / Dependency | Minimum Version | Purpose |
 | :--- | :--- | :--- |
-| **Ollama** | Latest | Local LLM inference runtime |
-| **Docker Desktop** | 20.10+ | Container runtime (for Docker deployment) |
+| **Gemini API Key** | - | Required for generation, rewrite, and reflection tasks |
+| **Docker Desktop** | 20.10+ | Containerized runtime |
 | **Docker Compose** | v2+ | Multi-service orchestration |
-| **Python** | 3.11+ | Backend (manual deployment only) |
-| **Node.js** | v20+ | Frontend build (manual deployment only) |
-
-**Pre-pull required LLM models:**
-```bash
-ollama pull qwen2.5:7b
-ollama pull llama3.2
-```
+| **Python** | 3.11+ | Local development runtime (for manual runs) |
+| **Node.js** | v20+ | Client UI build runtime (for manual runs) |
 
 ---
 
 ### 7.2. 🐳 Docker Deployment (Recommended)
 
-Docker Compose orchestrates the full stack with **4 services**: Redis, Backend (FastAPI), Frontend (Nginx), and Dashboard (Nginx). Ollama runs on the host machine.
+Docker Compose configures **4 services** (Redis Stack, Backend FastAPI, Frontend Nginx, Dashboard Nginx). The vector stores are saved locally inside Docker volumes.
 
 ```mermaid
 graph TB
-    subgraph Host["Host Machine (macOS/Linux)"]
-        Ollama["🦙 Ollama<br/>qwen2.5:7b + llama3.2<br/>:11434"]
+    subgraph Cloud["Cloud APIs"]
+        Gemini["♊ Google Gemini API<br/>(gemini-2.5-flash / lite)"]
     end
 
     subgraph Docker["Docker Compose Network"]
-        Redis["🔴 Redis 7-Alpine<br/>Semantic Cache & Stats<br/>:6379"]
+        Redis["🔴 Redis 7-Alpine<br/>Semantic Cache & Stats<br/>:6380 → :6379"]
         Backend["⚡ Backend FastAPI<br/>Agentic RAG Engine<br/>:8000"]
-        Frontend["💬 Frontend Nginx<br/>Chat UI<br/>:5173 → :80"]
-        Dashboard["📊 Dashboard Nginx<br/>Monitoring UI<br/>:5174 → :80"]
+        Frontend["💬 Frontend Nginx<br/>Vite React Web App<br/>:5173 → :80"]
+        Dashboard["📊 Dashboard Nginx<br/>Vite Dashboard App<br/>:5174 → :80"]
     end
 
     Backend -->|"redis://redis:6379"| Redis
-    Backend -->|"host.docker.internal:11434"| Ollama
+    Backend --> Gemini
     Frontend -->|"localhost:8000 (browser)"| Backend
     Dashboard -->|"localhost:8000 (browser)"| Backend
 ```
 
 #### Quick Start (3 commands)
 
-```bash
-# 1. Build and start all services (first time takes 5-15 min)
-docker compose up --build -d
+1.  **Configure environment variables:**
+    Copy `backend/.env.example` to `backend/.env` and add your Google API key:
+    ```bash
+    cp backend/.env.example backend/.env
+    # Edit backend/.env and configure GOOGLE_API_KEY
+    ```
 
-# 2. Ingest data into ChromaDB (run once, or after data updates)
-docker compose exec backend python ingest.py
+2.  **Build and launch containers:**
+    ```bash
+    docker compose up --build -d
+    ```
 
-# 3. Open in browser
-#    Chat UI:   http://localhost:5173
-#    Dashboard: http://localhost:5174
-#    API Docs:  http://localhost:8000/docs
-```
+3.  **Run document ingestion:**
+    ```bash
+    docker compose exec backend python ingest.py
+    ```
+
+4.  **Access the interfaces:**
+    *   **Chat / Voice / Dashboard (React app):** [http://localhost:5173](http://localhost:5173)
+    *   **Telemetry Dashboard (Chart.js app):** [http://localhost:5174](http://localhost:5174)
+    *   **FastAPI Interactive Docs:** [http://localhost:8000/docs](http://localhost:8000/docs)
 
 #### Docker Service Details
 
-| Service | Image | Port Mapping | Health Check |
+| Service | Container Name | Port Mapping | Healthcheck |
 | :--- | :--- | :--- | :--- |
-| `bkai-redis` | `redis:7-alpine` | `6379:6379` | `redis-cli ping` |
-| `bkai-backend` | `python:3.11-slim` | `8000:8000` | `GET /api/health` |
-| `bkai-frontend` | `node:20-alpine → nginx:alpine` | `5173:80` | HTTP 200 |
-| `bkai-dashboard` | `node:20-alpine → nginx:alpine` | `5174:80` | HTTP 200 |
+| `redis` | `bkai-redis` | `6380:6379` | `redis-cli ping` |
+| `backend` | `bkai-backend` | `8000:8000` | `GET /api/health` |
+| `frontend` | `bkai-frontend` | `5173:80` | Nginx HTTP 200 |
+| `dashboard` | `bkai-dashboard` | `5174:80` | Nginx HTTP 200 |
 
 #### Docker Commands Reference
 
 ```bash
-# View all running containers
+# View container status
 docker compose ps
 
-# View real-time logs (Ctrl+C to exit)
+# Follow logs
 docker compose logs -f
 
-# View logs for a specific service
-docker compose logs backend --tail 50
-
-# Restart a single service
-docker compose restart backend
-
-# Rebuild only backend (after code changes)
+# Rebuild only the backend after changing Python code
 docker compose up --build -d backend
 
-# Stop all services
+# Stop services and keep volumes
 docker compose down
 
-# Stop and remove all volumes (full reset)
+# Stop and delete volumes (wipes database)
 docker compose down -v
-
-# Open a shell inside backend container
-docker compose exec backend bash
-
-# Check Redis connectivity
-docker compose exec redis redis-cli ping
 ```
-
-> **Note:** Frontend and Dashboard containers serve static files via **Nginx** using a multi-stage Docker build (Vite build → Nginx serve). The API URL (`localhost:8000`) is accessed from the user's browser, not from within Docker's internal network.
 
 ---
 
 ### 7.3. Manual Deployment (Development)
 
-For local development without Docker:
+To run the application services locally for debugging:
 
-#### Start Backend & Data Pipeline
+#### 1. Launch Redis & Qdrant (Infrastructure)
+Ensure Redis (port 6380) and Qdrant (port 6333) are running. You can run them via Docker:
 ```bash
-# 1. Setup Python environment
-cd backend
-python -m venv .venv
-source .venv/bin/activate
-pip install -r requirements.txt
-
-# 2. Start Redis (required)
-redis-server
-
-# 3. Ingest and Embed data (Run once only)
-python ingest.py
-
-# 4. Start API Server
-python main.py
-# Server will run at: http://localhost:8000
+docker run -d --name local-redis -p 6380:6379 redis:7-alpine
+docker run -d --name local-qdrant -p 6333:6333 qdrant/qdrant
 ```
 
-#### Start User Interface (Chat UI)
+#### 2. Start the Backend API
 ```bash
-# Open a new Terminal
+cd backend
+python -m venv .venv
+source .venv/bin/activate  # On Windows: .venv\Scripts\activate
+pip install -r requirements.txt
+
+# Run the ingestion script (embeds files into local store)
+python ingest.py
+
+# Launch server
+python main.py
+```
+
+#### 3. Run the Frontend (React app)
+```bash
 cd frontend
 npm install
 npm run dev
-# Open browser at: http://localhost:5173
 ```
 
-#### Start Monitoring System (Dashboard)
+#### 4. Run the Standalone Dashboard
 ```bash
-# Open a new Terminal
 cd dashboard
 npm install
 npm run dev
-# Open browser at: http://localhost:5174
 ```
 
 ---
 
 ### 7.4. Updating Data & System Capacity Planning
 
-**How to Update New Data:**
-The ingestion pipeline is fully automated. You do not need to modify any code to add new knowledge to the system.
-1. **Unstructured Data (Markdown):** Place `.md` files in `backend/data/raw/`. Ensure sections are divided using `## Heading` so the chunker can properly segment the document.
-2. **Structured Data (CSV):** Place `.csv` files in `backend/data/csv/`. The system converts each row into a structured document (`Header: Value`).
-3. **Run Ingestion:**
-   - **Docker:** `docker compose exec backend python ingest.py`
-   - **Manual:** Navigate to `backend/` and run `python ingest.py`
+**How to Update admissions knowledge:**
+1.  **Unstructured documents (.md):** Place them in `backend/data/raw/`. Split sections with `## H2 headers` to allow the semantic chunker to process them properly.
+2.  **Structured lists (.csv):** Place them in `backend/data/csv/`. Each row is parsed into a structured document.
+3.  **PDF announcements (.pdf):** Put them in `backend/data/pdf/`.
+4.  **Admissions guidelines (.docx):** Place them in `backend/data/docx/`.
+5.  **Run ingestion:** Execute `python ingest.py` (locally or inside the backend container) to rebuild vector spaces and BM25 indexes.
 
-**System Capacity & Scalability Limits:**
-- **Storage Capability:** The system utilizes ChromaDB locally, which can easily store and query hundreds of thousands of document chunks with sub-second latency. Since admission data for even multiple universities rarely exceeds a few thousand chunks, the vector database is essentially unbounded in this context.
-- **LLM Context Window Safety:** Regardless of how massive the database grows, the Hybrid Search engine retrieves only the `top_k=20` most relevant chunks per query. With Ollama's `num_ctx=8192` setting, the system will never face context window overflow or "Out of Memory" issues as the data scales.
-- **Ingestion Bottleneck:** The only limiting factor is the offline ingestion process (`python ingest.py`), which generates embeddings on the CPU. While querying in real-time is instant, generating embeddings for massive datasets (e.g., millions of rows) all at once will take considerable time. However, since this is a one-time offline process, it will never affect runtime application performance for the end-users.
+**Capacity & Scaling Limits:**
+*   **Vector Scaling:** Utilizing local Qdrant/ChromaDB collections allows quick semantic search across thousands of pages of admissions documents without degradation.
+*   **Context Safety:** The retrieval stage strictly limits results to `top_k=20`. Using Gemini's large context window prevents out-of-memory or context-overflow issues as the database scales.
+*   **Ingestion Bottleneck:** Generating embeddings (`BAAI/bge-m3`) offline runs on CPU/GPU depending on environment variables. Queries, however, remain fast regardless of data size.
 
 ---
 
 ## 8. Environment Configuration
 
-All configuration is managed through environment variables. When running with Docker, these are defined in `docker-compose.yml`. For local development, edit `backend/.env`.
+The primary configurations located in `backend/.env` are:
 
-| Variable | Default | Description |
+| Variable | Default Value | Description |
 | :--- | :--- | :--- |
-| `OLLAMA_BASE_URL` | `http://localhost:11434` | Ollama server URL (`host.docker.internal` in Docker) |
-| `OLLAMA_MODEL_PRIMARY` | `qwen2.5:7b` | Primary model for generation & reflection |
-| `OLLAMA_MODEL_FAST` | `llama3.2` | Fast model for query rewriting & evaluation |
-| `REDIS_URL` | `redis://localhost:6379/0` | Redis connection URL (`redis://redis:6379/0` in Docker) |
-| `CHROMA_PERSIST_DIR` | `./memory/vector_db` | ChromaDB persistence directory |
-| `EMBEDDING_MODEL` | `paraphrase-multilingual-MiniLM-L12-v2` | Sentence-transformers model name |
-| `HYBRID_SEARCH_ALPHA` | `0.7` | Weight between semantic (1.0) and BM25 (0.0) |
-| `SEMANTIC_CACHE_THRESHOLD` | `0.92` | Cosine similarity threshold for cache hits |
-| `MAX_CONCURRENT_USERS` | `15` | Maximum simultaneous sessions |
-| `RATE_LIMIT_PER_MINUTE` | `30` | API requests per minute per client |
+| `GOOGLE_API_KEY` | `""` | Google Gemini API Authentication credential. |
+| `GEMINI_MODEL_PRIMARY` | `gemini-2.5-flash` | Primary LLM for generating answers and reflection. |
+| `GEMINI_MODEL_FAST` | `gemini-2.5-flash-lite` | Lite LLM for query rewrites, evaluations, and guardrails. |
+| `REDIS_URL` | `redis://localhost:6380/0` | Connection URL for semantic caching and stats databases. |
+| `QDRANT_ENABLED` | `true` | Toggle to use Qdrant (`true`) or fallback to ChromaDB (`false`). |
+| `QDRANT_URL` | `http://localhost:6333` | Qdrant vector database URL. |
+| `EMBEDDING_MODEL` | `BAAI/bge-m3` | Vector embedding model name. |
+| `HYBRID_SEARCH_ALPHA` | `0.7` | Weight of dense search (1.0 = purely dense, 0.0 = BM25). |
+| `RERANK_TOP_K` | `8` | Number of documents remaining after cross-encoder reranking. |
+| `RETRIEVAL_TOP_K` | `20` | Initial candidate retrieval count per query. |
+| `SEMANTIC_CACHE_THRESHOLD` | `0.92` | Cosine similarity threshold for semantic cache hits. |
+| `GUARDRAILS_ENABLED` | `true` | Enables/Disables scope control guardrails. |
+| `MCP_SCRAPER_ENABLED` | `true` | Toggles the real-time `hcmut.edu.vn` crawler fallback. |
 
 ---
 
 ## 9. Troubleshooting
 
-### Docker: Backend cannot connect to Ollama
-```bash
-# Verify Ollama is running on host
-curl http://localhost:11434/api/tags
+### 1. Backend fails to resolve Gemini models
+*   **Error:** `APIKeyError` or timeout.
+*   **Solution:** Verify `GOOGLE_API_KEY` is correctly set in `backend/.env`. Check if you've hit your API quota limits.
 
-# If using Docker Desktop on macOS, host.docker.internal should work automatically.
-# If not, add to docker-compose.yml under backend service:
-#   extra_hosts:
-#     - "host.docker.internal:host-gateway"
-```
+### 2. Docker: Connection refused to Redis/Qdrant
+*   **Error:** Connection errors.
+*   **Solution:** In `backend/.env` for local manual development, use `localhost`. For Docker, make sure you configure the URL to match the container service name (e.g., `redis://redis:6379/0`).
 
-### Docker: Backend out of memory
-The embedding model (`sentence-transformers`) requires ~2-3GB RAM. Increase Docker Desktop memory allocation:
-**Docker Desktop → Settings → Resources → Memory → 4GB+**
+### 3. CPU execution bottlenecks during ingestion
+*   **Error:** Ingestion takes too long on local machines.
+*   **Solution:** The embedding model `BAAI/bge-m3` and reranking model `BAAI/bge-reranker-v2-m3` are loaded into memory. Ensure your system allocates at least 4GB of RAM to Docker Desktop.
 
-### Docker: Frontend/Dashboard build fails
-```bash
-# Ensure package-lock.json exists and is in sync
-cd frontend && npm install && cd ..
-cd dashboard && npm install && cd ..
-
-# Rebuild
-docker compose up --build -d frontend dashboard
-```
-
-### Verifying System Health
-```bash
-# API health check
-curl http://localhost:8000/api/health
-# Expected: {"status":"healthy","service":"BKAi","version":"1.0.0"}
-
-# Redis connectivity
-docker compose exec redis redis-cli ping
-# Expected: PONG
-
-# Full system stats
-curl http://localhost:8000/api/stats | python3 -m json.tool
-```
+### 4. Semantic cache does not return anything
+*   **Reason:** Caching only triggers for responses that have been upvoted/liked (`status = liked`).
+*   **Solution:** Go to the Chat Interface and click the Like (👍) button on an answer. It will immediately save it to the cache for future queries.
 
 ---
 
 ## 10. Future Roadmap & Scaling
 
-To upgrade from the internal Production-ready version to a large-scale Public Facing system, expansion directions include:
-1.  **Frontend Framework Migration:** Consider migrating from Vanilla JS to React/Next.js if the Chatbot and Dashboard UI logic becomes too complex in the future.
-2.  **Migrate Backend LLM to Managed Services (Optional):** The Agent structure is designed following the Adapter standard (LangChain). It is possible to switch from Ollama to OpenAI GPT-4o-mini or Claude 3.5 Haiku with just 1 line of code in `.env` to handle load for thousands of concurrent users.
-3.  **Crawler Agent Integration:** Build a background Agent running periodically (Cronjob) to crawl the latest admission announcements from the HCMUT website and automatically vectorize them into ChromaDB, keeping the system "alive".
-4.  **Database Agent (Text-to-SQL):** Provide the capability to query personalized student data securely through direct interaction with a sample database.
-5.  **Kubernetes Deployment:** Scale horizontally with K8s orchestration for high-availability production environments.
-6.  **Vector DB Migration:** Evaluate migration from ChromaDB to Qdrant for improved scalability and production-grade features (sharding, replication).
+1.  **Authentication & Multi-tenancy:** Integrate OAuth2 flows to enable personalized consulting (e.g., saving user mock scores and matching admissions criteria).
+2.  **Fully Automated crawler (Cron):** Run background crawler agents to scrape admissions notices and update vector indices automatically.
+3.  **Database Querying (Text-to-SQL):** Connect structured candidate databases to query admissions statistical reports securely.
+4.  **Scale Qdrant / Redis Stack:** Migrate to hosted Qdrant Cloud or fully managed Redis Enterprise to support millions of queries.
+5.  **RAGAS Evaluation Automated CI/CD:** Set up evaluation scripts to validate retrieval accuracy automatically on data updates.
 
 ---
-*This report is generated and structured according to Technical Review Report standards.*
+*This technical report is maintained and structured according to project review specifications.*
