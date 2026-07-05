@@ -1,7 +1,5 @@
 """
-BKAi — Agentic RAG Tư vấn Tuyển sinh ĐH Bách Khoa.
-
-FastAPI application entry point.
+BkAI — Agentic RAG Tư vấn Tuyển sinh ĐH Bách Khoa.
 """
 
 from __future__ import annotations
@@ -13,25 +11,24 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from config.settings import get_settings
-from utils.logger import setup_logging, get_logger
+from utils.logger import get_logger, setup_logging
 
 logger = get_logger(__name__)
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
-    """Application startup and shutdown lifecycle manager."""
     settings = get_settings()
 
-    # ── Startup ──
     setup_logging(log_level="DEBUG" if settings.api.debug else "INFO")
     logger.info(
         "bkai_startup",
-        ollama_model=settings.ollama.model_primary,
+        app_name=settings.app.name,
+        gemini_primary=settings.gemini.model_primary,
+        gemini_fast=settings.gemini.model_fast,
         api_port=settings.api.port,
     )
 
-    # Warm up embedding model (background)
     try:
         from ingestion.embedder import get_embedding_model
         get_embedding_model()
@@ -39,7 +36,6 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     except Exception as e:
         logger.warning("embedding_warmup_failed", error=str(e))
 
-    # Compile LangGraph
     try:
         from workflows.main_graph import get_compiled_graph
         get_compiled_graph()
@@ -47,7 +43,6 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     except Exception as e:
         logger.warning("langgraph_warmup_failed", error=str(e))
 
-    # Verify Redis
     try:
         from memory.semantic_cache import get_redis_cache, get_redis_stats
         get_redis_cache().ping()
@@ -57,23 +52,19 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         logger.warning("redis_connection_failed", error=str(e))
 
     yield
-
-    # ── Shutdown ──
     logger.info("bkai_shutdown")
 
 
 def create_app() -> FastAPI:
-    """Create and configure the FastAPI application."""
     settings = get_settings()
 
     app = FastAPI(
-        title="BKAi — Tư vấn Tuyển sinh Bách Khoa",
+        title=f"{settings.app.name} — Tư vấn Tuyển sinh Bách Khoa",
         description="Agentic RAG system for HCMUT admissions counseling",
-        version="1.0.0",
+        version="2.0.0",
         lifespan=lifespan,
     )
 
-    # CORS middleware
     app.add_middleware(
         CORSMiddleware,
         allow_origins=settings.api.cors_origin_list,
@@ -82,11 +73,9 @@ def create_app() -> FastAPI:
         allow_headers=["*"],
     )
 
-    # Register REST routes
     from api.routes import router
     app.include_router(router)
 
-    # Register WebSocket routes
     from api.websocket import ws_router
     app.include_router(ws_router)
 

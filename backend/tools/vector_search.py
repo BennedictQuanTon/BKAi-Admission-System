@@ -53,16 +53,16 @@ def vector_search(
     settings = get_settings()
     k = top_k or settings.search.retrieval_top_k
 
-    model = get_embedding_model()
+    from ingestion.embedder import get_embedding_model, encode_query
+
+    if "bge-m3" in settings.embedding.model.lower():
+        query_embedding = [encode_query(query, return_sparse=False)[0]]
+    else:
+        model = get_embedding_model()
+        query_embedding = model.encode([query], normalize_embeddings=True).tolist()
     client = get_chroma_client()
     collection = client.get_collection(settings.chroma.collection_name)
 
-    # Embed query
-    query_embedding = model.encode(
-        [query], normalize_embeddings=True
-    ).tolist()
-
-    # Build where clause from filters
     where_clause = None
     if filters:
         conditions = []

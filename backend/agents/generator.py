@@ -1,7 +1,5 @@
 """
-BKAi Answer Generator.
-
-Generates the final answer using retrieved context and the primary LLM.
+BkAI Answer Generator — Gemini Flash with token streaming.
 """
 
 from __future__ import annotations
@@ -9,22 +7,17 @@ from __future__ import annotations
 import time
 
 from langchain_core.messages import HumanMessage
-from langchain_ollama import ChatOllama
 
 from agents.state import AgentState
-from config.settings import get_settings
 from config.prompts import ANSWER_GENERATION_PROMPT
+from services.llm_factory import acquire_rpm_slot, get_primary_llm
+from services.stream_context import emit_token
 from utils.logger import AgentTracer
 
 tracer = AgentTracer("generator")
 
 
-def generate_answer_node(state: AgentState) -> dict:
-    """
-    LangGraph node: Generate the final answer using retrieved context.
-
-    Uses the primary model (qwen2.5:7b) for highest quality Vietnamese output.
-    """
+async def generate_answer_node(state: AgentState) -> dict:
     t0 = time.time()
     tracer.start("generate")
 
@@ -32,35 +25,42 @@ def generate_answer_node(state: AgentState) -> dict:
     context = state.get("retrieval_context", "Không có dữ liệu liên quan.")
     history = state.get("chat_history", [])
 
-    settings = get_settings()
-
-    # Format chat history
     history_str = ""
     if history:
         parts = []
-        for turn in history[-6:]:  # Last 3 exchanges
-            role = "Người dùng" if turn.get("role") == "user" else "BKAi"
+        for turn in history[-6:]:
+            role = "Người dùng" if turn.get("role") == "user" else "BkAI"
             parts.append(f"{role}: {turn.get('content', '')}")
         history_str = "\n".join(parts)
 
-    # Build the prompt
     prompt = ANSWER_GENERATION_PROMPT.format(
         context=context,
         chat_history=history_str or "Không có lịch sử hội thoại.",
         question=query,
     )
 
+    answer = ""
     try:
-        llm = ChatOllama(
-            model=settings.ollama.model_primary,
-            base_url=settings.ollama.base_url,
-            temperature=0.3,
-            num_ctx=settings.ollama.num_ctx,
-        )
-
+        await acquire_rpm_slot("primary")
+        llm = get_primary_llm()
         messages = [HumanMessage(content=prompt)]
-        response = llm.invoke(messages)
-        answer = response.content.strip()
+
+        chunks: list[str] = []
+        async for chunk in llm.astream(messages):
+            text = chunk.content if hasattr(chunk, "content") else str(chunk)
+            if isinstance(text, list):
+                text = "".join(
+                    block.get("text", "") if isinstance(block, dict) else str(block)
+                    for block in text
+                )
+            if text:
+                chunks.append(text)
+                await emit_token(text)
+
+        answer = "".join(chunks).strip()
+        if not answer:
+            response = await llm.ainvoke(messages)
+            answer = response.content.strip()
 
     except Exception as e:
         tracer.error("generate", error=str(e))

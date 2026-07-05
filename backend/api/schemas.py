@@ -81,5 +81,5 @@ class VoiceAskResponse(BaseModel):
 class HealthResponse(BaseModel):
     """Health check response."""
     status: str = "healthy"
-    service: str = "BKAi"
+    service: str = "BkAI"
     version: str = "1.0.0"

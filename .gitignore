@@ -16,7 +16,17 @@ env/
 
 # ===== Environment Variables =====
 .env
+.env.*
 !.env.example
+backend/.env
+backend/.env.*
+!backend/.env.example
+frontend/.env
+frontend/.env.*
+!frontend/.env.example
+dashboard/.env
+dashboard/.env.*
+!dashboard/.env.example
 
 # ===== IDE =====
 .vscode/
@@ -29,8 +39,10 @@ env/
 .DS_Store
 Thumbs.db
 
-# ===== ChromaDB Persisted Data =====
-bkai/backend/memory/vector_db/
+# ===== Vector DB / Cache Data =====
+backend/memory/vector_db/
+backend/data/processed/
+.qdrant/
 
 # ===== Node.js =====
 node_modules/

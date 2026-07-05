@@ -9,15 +9,18 @@ pydantic-settings>=2.7.0
 langchain>=0.3.0
 langchain-core>=0.3.0
 langchain-community>=0.3.0
-langchain-ollama>=0.3.0
+langchain-google-genai>=2.0.0
 langgraph>=0.3.0
 
 # ===== Vector Store & Embeddings =====
 chromadb>=0.6.0
+qdrant-client>=1.12.0
 sentence-transformers>=4.0.0
+FlagEmbedding>=1.2.0
 
 # ===== Search & Retrieval =====
 rank-bm25>=0.2.2
+pyvi>=0.1.1
 
 # ===== Cache & Storage =====
 redis>=5.0.0
@@ -41,3 +44,8 @@ structlog>=24.0.0
 # ===== Audio & Voice =====
 faster-whisper>=1.0.0
 edge-tts>=7.0.0
+
+# ===== Evaluation =====
+ragas>=0.2.0
+pypdf>=5.0.0
+python-docx>=1.1.0

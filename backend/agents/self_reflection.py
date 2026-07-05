@@ -1,35 +1,31 @@
 """
-BKAi Self-Reflection Agent.
-
-Validates generated answers for factual accuracy, completeness,
-and hallucination before returning to the user.
+BkAI Self-Reflection Agent — Gemini Flash, only for numeric/factual queries.
 """
 
 from __future__ import annotations
 
-import json
 import time
 
-from langchain_core.messages import SystemMessage, HumanMessage
-from langchain_ollama import ChatOllama
+from langchain_core.messages import HumanMessage, SystemMessage
+from pydantic import BaseModel, Field
 
+from agents.retriever import query_has_numeric_facts
 from agents.state import AgentState
-from config.settings import get_settings
 from config.prompts import SELF_REFLECTION_PROMPT
+from services.llm_factory import acquire_rpm_slot, get_primary_llm
 from utils.logger import AgentTracer
 
 tracer = AgentTracer("self_reflection")
-
 CONFIDENCE_THRESHOLD = 0.7
 
 
-def self_reflect_node(state: AgentState) -> dict:
-    """
-    LangGraph node: Evaluate answer quality before returning.
+class ReflectionOutput(BaseModel):
+    confidence: float = Field(ge=0.0, le=1.0)
+    is_acceptable: bool = True
+    issues: list[str] = Field(default_factory=list)
 
-    Uses the primary model (qwen2.5:7b) for thorough quality assessment.
-    Returns confidence score and issues list.
-    """
+
+async def self_reflect_node(state: AgentState) -> dict:
     t0 = time.time()
     tracer.start("self_reflect")
 
@@ -44,47 +40,50 @@ def self_reflect_node(state: AgentState) -> dict:
             "current_step": "self_reflect",
         }
 
-    settings = get_settings()
+    if not query_has_numeric_facts(query):
+        elapsed = time.time() - t0
+        tracer.end("self_reflect", confidence=0.85, acceptable=True, skipped=True)
+        return {
+            "answer_confidence": 0.85,
+            "answer_issues": [],
+            "current_step": "self_reflect",
+            "step_timings": {
+                **state.get("step_timings", {}),
+                "self_reflect": round(elapsed, 3),
+            },
+        }
 
     try:
-        llm = ChatOllama(
-            model=settings.ollama.model_primary,
-            base_url=settings.ollama.base_url,
-            temperature=0.0,
-            num_ctx=settings.ollama.num_ctx,
-        )
-
-        messages = [
+        await acquire_rpm_slot("primary")
+        llm = get_primary_llm().with_structured_output(ReflectionOutput)
+        result: ReflectionOutput = await llm.ainvoke([
             SystemMessage(content=SELF_REFLECTION_PROMPT),
             HumanMessage(content=(
                 f"## Câu hỏi\n{query}\n\n"
                 f"## Context đã cung cấp\n{context[:2000]}\n\n"
                 f"## Câu trả lời cần đánh giá\n{answer}"
             )),
-        ]
-
-        response = llm.invoke(messages)
-        result = _parse_reflection(response.content.strip())
-
+        ])
+        parsed = {
+            "confidence": float(result.confidence),
+            "is_acceptable": bool(result.is_acceptable),
+            "issues": list(result.issues or []),
+        }
     except Exception as e:
         tracer.error("self_reflect", error=str(e))
-        result = {
-            "confidence": 0.8,  # Default pass on error
-            "is_acceptable": True,
-            "issues": [],
-        }
+        parsed = {"confidence": 0.8, "is_acceptable": True, "issues": []}
 
     elapsed = time.time() - t0
     tracer.end(
         "self_reflect",
-        confidence=result["confidence"],
-        acceptable=result["is_acceptable"],
+        confidence=parsed["confidence"],
+        acceptable=parsed["is_acceptable"],
         elapsed=round(elapsed, 2),
     )
 
     return {
-        "answer_confidence": result["confidence"],
-        "answer_issues": result.get("issues", []),
+        "answer_confidence": parsed["confidence"],
+        "answer_issues": parsed.get("issues", []),
         "current_step": "self_reflect",
         "step_timings": {
             **state.get("step_timings", {}),
@@ -94,35 +93,9 @@ def self_reflect_node(state: AgentState) -> dict:
 
 
 def should_retry(state: AgentState) -> str:
-    """
-    LangGraph conditional edge: decide next step after self-reflection.
-
-    Returns:
-        "retry" if confidence is too low and we haven't exceeded retries.
-        "accept" if answer is acceptable.
-    """
     confidence = state.get("answer_confidence", 1.0)
     iterations = state.get("iteration_count", 0)
 
     if confidence < CONFIDENCE_THRESHOLD and iterations < 2:
         return "retry"
     return "accept"
-
-
-def _parse_reflection(content: str) -> dict:
-    """Parse self-reflection LLM response."""
-    try:
-        json_start = content.find("{")
-        json_end = content.rfind("}") + 1
-        if json_start >= 0 and json_end > json_start:
-            data = json.loads(content[json_start:json_end])
-            return {
-                "confidence": float(data.get("confidence", 0.8)),
-                "is_acceptable": bool(data.get("is_acceptable", True)),
-                "issues": list(data.get("issues", [])),
-            }
-    except (json.JSONDecodeError, KeyError, ValueError):
-        pass
-
-    # Fallback: assume acceptable
-    return {"confidence": 0.8, "is_acceptable": True, "issues": []}

@@ -8,13 +8,13 @@ complementing the semantic vector search.
 from __future__ import annotations
 
 import pickle
-from pathlib import Path
 
 import numpy as np
 
 from config.settings import get_settings
 from tools.vector_search import SearchResult
 from utils.logger import get_logger
+from utils.vietnamese import tokenize_vi
 
 logger = get_logger(__name__)
 
@@ -70,7 +70,7 @@ def bm25_search(
     _load_bm25()
 
     # Tokenize query (simple whitespace split for Vietnamese)
-    tokens = query.lower().split()
+    tokens = tokenize_vi(query)
     if not tokens:
         return []
 

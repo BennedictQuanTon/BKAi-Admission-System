@@ -1,13 +1,5 @@
 """
-BKAi Main LangGraph Workflow.
-
-Defines the complete agent pipeline as a LangGraph state machine:
-
-    CheckCache → QueryRewrite → Retrieve → Evaluate
-        ↓ (sufficient)        ↓ (need_more → loop back)
-    Generate → SelfReflect → Return
-        ↑ (low confidence)  ↓ (accept)
-        └───────────────── Done
+BkAI Main LangGraph Workflow.
 """
 
 from __future__ import annotations
@@ -15,138 +7,89 @@ from __future__ import annotations
 import time
 from typing import Literal
 
-from langgraph.graph import StateGraph, END
+from langgraph.graph import END, StateGraph
 
-from agents.state import AgentState
-from agents.query_rewriter import query_rewrite_node
-from agents.retriever import retrieve_node, evaluate_results_node
 from agents.generator import generate_answer_node
+from agents.query_rewriter import query_rewrite_node
+from agents.retriever import evaluate_results_node, retrieve_node
 from agents.self_reflection import self_reflect_node, should_retry
+from agents.state import AgentState
 from memory.conversation import get_conversation_memory
-from utils.logger import get_logger, AgentTracer
+from tools.mcp_scraper import mcp_scrape_node
+from utils.logger import AgentTracer, get_logger
 
 logger = get_logger(__name__)
 tracer = AgentTracer("orchestrator")
 
 
-# ──────────────────────────────────────────────
-# Graph Construction
-# ──────────────────────────────────────────────
 def build_graph() -> StateGraph:
-    """
-    Build the LangGraph state machine for the Agentic RAG pipeline.
-
-    Graph structure:
-        query_rewrite → retrieve → evaluate_results
-            → (SUFFICIENT) → generate → self_reflect
-                → (accept) → END
-                → (retry) → retrieve (re-retrieve)
-            → (NEED_MORE) → retrieve (multi-hop loop)
-            → (NO_DATA) → generate (with "no data" context)
-    """
     graph = StateGraph(AgentState)
 
-    # ── Add nodes ──
     graph.add_node("query_rewrite", query_rewrite_node)
     graph.add_node("retrieve", retrieve_node)
     graph.add_node("evaluate_results", evaluate_results_node)
+    graph.add_node("mcp_scrape", mcp_scrape_node)
     graph.add_node("generate", generate_answer_node)
     graph.add_node("self_reflect", self_reflect_node)
 
-    # ── Set entry point ──
     graph.set_entry_point("query_rewrite")
-
-    # ── Add edges ──
-    # query_rewrite → retrieve
     graph.add_edge("query_rewrite", "retrieve")
-
-    # retrieve → evaluate_results
     graph.add_edge("retrieve", "evaluate_results")
 
-    # evaluate_results → conditional routing
     graph.add_conditional_edges(
         "evaluate_results",
         _route_after_evaluation,
         {
             "sufficient": "generate",
             "need_more": "retrieve",
-            "no_data": "generate",
+            "no_data": "mcp_scrape",
         },
     )
 
-    # generate → self_reflect
+    graph.add_edge("mcp_scrape", "generate")
     graph.add_edge("generate", "self_reflect")
 
-    # self_reflect → conditional routing
     graph.add_conditional_edges(
         "self_reflect",
         should_retry,
-        {
-            "retry": "retrieve",
-            "accept": END,
-        },
+        {"retry": "retrieve", "accept": END},
     )
 
     return graph
 
 
 def _route_after_evaluation(state: AgentState) -> Literal["sufficient", "need_more", "no_data"]:
-    """Route based on retrieval evaluation decision."""
     decision = state.get("retrieval_decision", "SUFFICIENT")
-
     if decision == "NEED_MORE":
         return "need_more"
-    elif decision == "NO_DATA":
+    if decision == "NO_DATA":
         return "no_data"
     return "sufficient"
 
 
-# ──────────────────────────────────────────────
-# Compiled Graph (singleton)
-# ──────────────────────────────────────────────
 _compiled_graph = None
 
 
 def get_compiled_graph():
-    """Get or build the compiled LangGraph workflow."""
     global _compiled_graph
     if _compiled_graph is None:
-        graph = build_graph()
-        _compiled_graph = graph.compile()
+        _compiled_graph = build_graph().compile()
         logger.info("langgraph_compiled")
     return _compiled_graph
 
 
-# ──────────────────────────────────────────────
-# Public API
-# ──────────────────────────────────────────────
 async def run_agent_pipeline(
     query: str,
     session_id: str = "default",
     chat_history: list[dict[str, str]] | None = None,
 ) -> dict:
-    """
-    Run the complete agent pipeline for a user query.
-
-    This is the main entry point called by the API layer.
-
-    Args:
-        query: User's question.
-        session_id: Session identifier for conversation memory.
-        chat_history: Optional previous conversation turns.
-
-    Returns:
-        Dict with 'answer', 'confidence', 'timings', and metadata.
-    """
     t0 = time.time()
     tracer.start("pipeline", query=query[:80], session_id=session_id)
 
-    # Get conversation history
     memory = get_conversation_memory()
     if chat_history is None:
         chat_history = memory.get_history(session_id)
 
-    # Build initial state
     initial_state: AgentState = {
         "original_query": query,
         "chat_history": chat_history,
@@ -168,7 +111,6 @@ async def run_agent_pipeline(
         "step_timings": {},
     }
 
-    # Run the graph
     graph = get_compiled_graph()
 
     try:
@@ -185,7 +127,6 @@ async def run_agent_pipeline(
             "error": str(e),
         }
 
-    # Update conversation memory
     memory.add_turn(session_id, "user", query)
     memory.add_turn(session_id, "assistant", final_state.get("generated_answer", ""))
 

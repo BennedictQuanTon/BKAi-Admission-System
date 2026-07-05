@@ -1,7 +1,5 @@
 """
-BKAi WebSocket Handler.
-
-Provides real-time streaming chat via WebSocket.
+BkAI WebSocket Handler — streaming tokens + guardrails.
 """
 
 from __future__ import annotations
@@ -11,11 +9,13 @@ import time
 
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 
-from memory.semantic_cache import check_cache, store_in_cache, record_question
 from memory.conversation import get_conversation_memory
-from workflows.main_graph import run_agent_pipeline
+from memory.semantic_cache import check_cache, record_question, store_in_cache
+from services.guardrails import GuardrailDecision, enforce_guardrails
+from services.stream_context import set_token_callback
 from utils.logger import get_logger
 from utils.text_cleaning import sanitize_input
+from workflows.main_graph import run_agent_pipeline
 
 logger = get_logger(__name__)
 ws_router = APIRouter()
@@ -23,20 +23,11 @@ ws_router = APIRouter()
 
 @ws_router.websocket("/ws/chat")
 async def websocket_chat(websocket: WebSocket):
-    """
-    WebSocket endpoint for streaming chat.
-
-    Protocol:
-    - Client sends: {"query": "...", "session_id": "..."}
-    - Server sends: {"type": "stream", "content": "..."} (tokens)
-    - Server sends: {"type": "done", "answer": "...", "metadata": {...}}
-    """
     await websocket.accept()
     logger.info("ws_connected")
 
     try:
         while True:
-            # Receive message
             raw = await websocket.receive_text()
             try:
                 data = json.loads(raw)
@@ -53,7 +44,20 @@ async def websocket_chat(websocket: WebSocket):
 
             t0 = time.time()
 
-            # Check cache first
+            guard = await enforce_guardrails(query)
+            if guard.decision == GuardrailDecision.REJECT:
+                await websocket.send_json({
+                    "type": "done",
+                    "answer": guard.rejection_message,
+                    "metadata": {
+                        "cached": False,
+                        "guardrail": True,
+                        "confidence": 1.0,
+                        "response_time": round(time.time() - t0, 3),
+                    },
+                })
+                continue
+
             cached = check_cache(query)
             if cached:
                 response_time = time.time() - t0
@@ -69,11 +73,15 @@ async def websocket_chat(websocket: WebSocket):
                 record_question(query, cached["answer"], response_time, 0.0, cached=True)
                 continue
 
-            # Send "thinking" status
-            await websocket.send_json({"type": "status", "message": "Đang xử lý..."})
+            await websocket.send_json({"type": "status", "message": "Đang tìm kiếm thông tin..."})
 
-            # Run pipeline
+            async def on_token(token: str) -> None:
+                await websocket.send_json({"type": "token", "content": token})
+
+            set_token_callback(on_token)
+
             try:
+                await websocket.send_json({"type": "status", "message": "Đang viết câu trả lời..."})
                 result = await run_agent_pipeline(query=query, session_id=session_id)
             except Exception as e:
                 logger.error("ws_pipeline_error", error=str(e))
@@ -82,10 +90,11 @@ async def websocket_chat(websocket: WebSocket):
                     "message": "Xin lỗi, có lỗi xảy ra khi xử lý.",
                 })
                 continue
+            finally:
+                set_token_callback(None)
 
             response_time = time.time() - t0
 
-            # Send complete answer
             await websocket.send_json({
                 "type": "done",
                 "answer": result["answer"],
@@ -99,9 +108,9 @@ async def websocket_chat(websocket: WebSocket):
                 },
             })
 
-            # Cache and record
             store_in_cache(
-                query=query, answer=result["answer"],
+                query=query,
+                answer=result["answer"],
                 confidence=result.get("confidence", 0.0),
                 timings=result.get("timings"),
                 sources=result.get("sources"),

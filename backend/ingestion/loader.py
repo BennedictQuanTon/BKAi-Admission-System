@@ -159,6 +159,56 @@ def load_csv_file(filepath: Path) -> list[Document]:
     return documents
 
 
+def load_pdf_file(filepath: Path) -> list[Document]:
+    from pypdf import PdfReader
+
+    filename = filepath.name
+    reader = PdfReader(str(filepath))
+    pages = []
+    for page in reader.pages:
+        text = page.extract_text() or ""
+        text = normalize_unicode(text).strip()
+        if text:
+            pages.append(text)
+
+    if not pages:
+        return []
+
+    content = "\n\n".join(pages)
+    return [Document(
+        content=content,
+        metadata={
+            "source_file": filename,
+            "category": _detect_category(filename, content),
+            "doc_type": "pdf",
+        },
+        source_file=filename,
+        doc_type="pdf",
+    )]
+
+
+def load_docx_file(filepath: Path) -> list[Document]:
+    from docx import Document as DocxDocument
+
+    filename = filepath.name
+    docx = DocxDocument(str(filepath))
+    paragraphs = [normalize_unicode(p.text).strip() for p in docx.paragraphs if p.text.strip()]
+    if not paragraphs:
+        return []
+
+    content = "\n\n".join(paragraphs)
+    return [Document(
+        content=content,
+        metadata={
+            "source_file": filename,
+            "category": _detect_category(filename, content),
+            "doc_type": "docx",
+        },
+        source_file=filename,
+        doc_type="docx",
+    )]
+
+
 def load_all_documents() -> list[Document]:
     """
     Load all documents from raw/ and csv/ directories.
@@ -183,11 +233,23 @@ def load_all_documents() -> list[Document]:
             docs = load_csv_file(csv_file)
             all_docs.extend(docs)
 
+    pdf_dir = settings.data_dir / "pdf"
+    if pdf_dir.exists():
+        for pdf_file in sorted(pdf_dir.glob("*.pdf")):
+            all_docs.extend(load_pdf_file(pdf_file))
+
+    docx_dir = settings.data_dir / "docx"
+    if docx_dir.exists():
+        for docx_file in sorted(docx_dir.glob("*.docx")):
+            all_docs.extend(load_docx_file(docx_file))
+
     logger.info(
         "all_documents_loaded",
         total_documents=len(all_docs),
         markdown_count=sum(1 for d in all_docs if d.doc_type == "markdown"),
         csv_count=sum(1 for d in all_docs if d.doc_type == "csv_row"),
+        pdf_count=sum(1 for d in all_docs if d.doc_type == "pdf"),
+        docx_count=sum(1 for d in all_docs if d.doc_type == "docx"),
     )
     return all_docs
 

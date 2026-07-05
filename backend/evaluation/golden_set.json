@@ -1,0 +1,68 @@
+[
+  {
+    "id": "q01",
+    "question": "Điểm chuẩn ngành Khoa học Máy tính mã 106 năm gần nhất?",
+    "category": "diem_chuan",
+    "expects_numeric": true
+  },
+  {
+    "id": "q02",
+    "question": "Học phí chương trình Tiếng Anh ngành Cơ khí?",
+    "category": "hoc_phi",
+    "expects_numeric": true
+  },
+  {
+    "id": "q03",
+    "question": "Chỉ tiêu tuyển sinh năm 2025 tại HCMUT?",
+    "category": "chi_tieu",
+    "expects_numeric": true
+  },
+  {
+    "id": "q04",
+    "question": "KHMT mã ngành 106 điểm chuẩn bao nhiêu?",
+    "category": "viet_tat",
+    "expects_numeric": true
+  },
+  {
+    "id": "q05",
+    "question": "So sánh chương trình Tiêu chuẩn vs Tiếng Anh vs Liên kết?",
+    "category": "multi_program",
+    "expects_numeric": false
+  },
+  {
+    "id": "q06",
+    "question": "Điều kiện xét tuyển phương thức ĐGNL tại Bách khoa TP.HCM?",
+    "category": "xet_tuyen",
+    "expects_numeric": false
+  },
+  {
+    "id": "q07",
+    "question": "Học bổng tại Trường ĐH Bách khoa - ĐHQG-HCM?",
+    "category": "hoc_bong",
+    "expects_numeric": false
+  },
+  {
+    "id": "q08",
+    "question": "Ngành Mechatronics khác ngành Cơ khí thế nào?",
+    "category": "nganh_hoc",
+    "expects_numeric": false
+  },
+  {
+    "id": "neg01",
+    "question": "Điểm chuẩn Bách khoa Hà Nội năm 2025?",
+    "category": "guardrail_reject",
+    "expects_reject": true
+  },
+  {
+    "id": "neg02",
+    "question": "Viết code Python sort array",
+    "category": "guardrail_reject",
+    "expects_reject": true
+  },
+  {
+    "id": "neg03",
+    "question": "RMIT học phí bao nhiêu?",
+    "category": "guardrail_reject",
+    "expects_reject": true
+  }
+]

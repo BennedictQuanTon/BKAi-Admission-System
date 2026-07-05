@@ -1,54 +1,56 @@
 """
-BKAi Multi-hop Retrieval Agent.
-
-Performs iterative retrieval with result evaluation.
-Decides whether results are sufficient or need more searching.
+BkAI Multi-hop Retrieval Agent — hybrid search, HyDE, reranking.
 """
 
 from __future__ import annotations
 
-import json
+import re
 import time
 
-from langchain_core.messages import SystemMessage, HumanMessage
-from langchain_ollama import ChatOllama
+from langchain_core.messages import HumanMessage, SystemMessage
+from pydantic import BaseModel, Field
 
-from agents.state import AgentState, serialize_results, format_context
-from config.settings import get_settings
+from agents.state import AgentState, format_context, serialize_results
 from config.prompts import MULTI_HOP_RETRIEVER_PROMPT
+from config.settings import get_settings
+from services.llm_factory import acquire_rpm_slot, get_fast_llm
 from tools.hybrid_search import hybrid_search
 from tools.reranker import rerank
 from utils.logger import AgentTracer
 
 tracer = AgentTracer("retriever")
-
 MAX_HOPS = 3
 
 
-def retrieve_node(state: AgentState) -> dict:
-    """
-    LangGraph node: Perform hybrid search + reranking.
+class EvaluateOutput(BaseModel):
+    decision: str = Field(description="SUFFICIENT | NEED_MORE | NO_DATA")
+    follow_up_query: str = ""
 
-    Searches using all rewritten queries and merges results.
-    """
+
+async def retrieve_node(state: AgentState) -> dict:
     t0 = time.time()
-    queries = state.get("rewritten_queries", [state["original_query"]])
+    settings = get_settings()
+    queries = list(state.get("rewritten_queries", [state["original_query"]]))
+    hyde_doc = state.get("hyde_document", "")
+
+    if hyde_doc and len(hyde_doc) > 50:
+        queries.append(hyde_doc[:500])
+
     tracer.start("retrieve", queries=len(queries))
 
     all_results = []
     seen_contents: set[str] = set()
 
     for query in queries:
-        results = hybrid_search(query, top_k=15)
+        results = hybrid_search(query, top_k=settings.search.retrieval_top_k)
         for r in results:
             key = r.content[:150]
             if key not in seen_contents:
                 seen_contents.add(key)
                 all_results.append(r)
 
-    # Rerank all merged results against original query
     original = state["original_query"]
-    reranked = rerank(original, all_results, top_k=8)
+    reranked = rerank(original, all_results, top_k=settings.search.rerank_top_k)
 
     elapsed = time.time() - t0
     tracer.end("retrieve", results=len(reranked), elapsed=round(elapsed, 2))
@@ -69,12 +71,7 @@ def retrieve_node(state: AgentState) -> dict:
     }
 
 
-def evaluate_results_node(state: AgentState) -> dict:
-    """
-    LangGraph node: Evaluate if retrieval results are sufficient.
-
-    Uses the fast model to make a quick SUFFICIENT/NEED_MORE/NO_DATA decision.
-    """
+async def evaluate_results_node(state: AgentState) -> dict:
     t0 = time.time()
     tracer.start("evaluate_results")
 
@@ -82,16 +79,14 @@ def evaluate_results_node(state: AgentState) -> dict:
     hops = state.get("retrieval_hops", 1)
     original = state["original_query"]
 
-    # Quick heuristics first
     if not results:
         decision = "NO_DATA"
     elif hops >= MAX_HOPS:
-        decision = "SUFFICIENT"  # Stop after max hops
-    elif len(results) >= 3 and results[0].get("score", 0) > 5.0:
-        decision = "SUFFICIENT"  # High-confidence results
+        decision = "SUFFICIENT"
+    elif len(results) >= 3 and results[0].get("score", 0) > 0.01:
+        decision = "SUFFICIENT"
     else:
-        # Use LLM for nuanced evaluation
-        decision = _llm_evaluate(original, results)
+        decision = await _llm_evaluate(original, results)
 
     elapsed = time.time() - t0
     tracer.end("evaluate_results", decision=decision, elapsed=round(elapsed, 2))
@@ -107,52 +102,34 @@ def evaluate_results_node(state: AgentState) -> dict:
     }
 
 
-def _llm_evaluate(query: str, results: list[dict]) -> str:
-    """Use fast LLM to evaluate retrieval sufficiency."""
-    settings = get_settings()
+async def _llm_evaluate(query: str, results: list[dict]) -> str:
+    snippets = [r.get("content", "")[:200] for r in results[:5]]
+    context_summary = "\n---\n".join(snippets)
 
     try:
-        llm = ChatOllama(
-            model=settings.ollama.model_fast,
-            base_url=settings.ollama.base_url,
-            temperature=0.0,
-            num_ctx=4096,
-        )
-
-        # Build concise context summary
-        snippets = []
-        for r in results[:5]:
-            snippets.append(r.get("content", "")[:200])
-        context_summary = "\n---\n".join(snippets)
-
-        messages = [
+        await acquire_rpm_slot("fast")
+        llm = get_fast_llm().with_structured_output(EvaluateOutput)
+        result: EvaluateOutput = await llm.ainvoke([
             SystemMessage(content=MULTI_HOP_RETRIEVER_PROMPT),
             HumanMessage(content=(
                 f"Câu hỏi: {query}\n\n"
                 f"Kết quả tìm kiếm ({len(results)} kết quả):\n{context_summary}"
             )),
-        ]
-
-        response = llm.invoke(messages)
-        content = response.content.strip()
-
-        # Parse decision
-        try:
-            json_start = content.find("{")
-            json_end = content.rfind("}") + 1
-            if json_start >= 0 and json_end > json_start:
-                data = json.loads(content[json_start:json_end])
-                return data.get("decision", "SUFFICIENT")
-        except (json.JSONDecodeError, KeyError):
-            pass
-
-        # Fallback: look for keywords
-        upper = content.upper()
-        if "NO_DATA" in upper:
-            return "NO_DATA"
-        if "NEED_MORE" in upper:
-            return "NEED_MORE"
+        ])
+        return result.decision if result.decision in {"SUFFICIENT", "NEED_MORE", "NO_DATA"} else "SUFFICIENT"
+    except Exception:
         return "SUFFICIENT"
 
-    except Exception:
-        return "SUFFICIENT"  # Default to sufficient on error
+
+def query_has_numeric_facts(query: str) -> bool:
+    """Detect questions likely needing factual verification."""
+    patterns = [
+        r"điểm\s*chuẩn",
+        r"học\s*phí",
+        r"chỉ\s*tiêu",
+        r"mã\s*ngành",
+        r"\b20[0-9]{2}\b",
+        r"\b\d{2,3}[,.]?\d*\b",
+    ]
+    text = query.lower()
+    return any(re.search(p, text) for p in patterns)

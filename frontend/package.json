@@ -1,14 +1,28 @@
 {
-  "name": "frontend",
-  "version": "0.0.0",
+  "name": "bkai-frontend",
   "private": true,
+  "version": "2.0.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "vite build",
+    "build": "tsc -b && vite build",
     "preview": "vite preview"
   },
+  "dependencies": {
+    "react": "^19.1.0",
+    "react-dom": "^19.1.0",
+    "react-markdown": "^10.1.0",
+    "react-router-dom": "^7.6.0",
+    "recharts": "^2.15.3",
+    "remark-gfm": "^4.0.1"
+  },
   "devDependencies": {
-    "vite": "^8.0.10"
+    "@tailwindcss/vite": "^4.1.8",
+    "@types/react": "^19.1.2",
+    "@types/react-dom": "^19.1.2",
+    "@vitejs/plugin-react": "^4.5.2",
+    "tailwindcss": "^4.1.8",
+    "typescript": "^5.8.3",
+    "vite": "^6.3.5"
   }
 }

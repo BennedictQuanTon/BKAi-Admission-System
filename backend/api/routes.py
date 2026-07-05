@@ -50,6 +50,18 @@ async def chat(request: ChatRequest) -> ChatResponse:
     if not query:
         raise HTTPException(status_code=400, detail="Query cannot be empty")
 
+    from services.guardrails import GuardrailDecision, enforce_guardrails
+
+    guard = await enforce_guardrails(query)
+    if guard.decision == GuardrailDecision.REJECT:
+        return ChatResponse(
+            answer=guard.rejection_message,
+            confidence=1.0,
+            cached=False,
+            session_id=session_id,
+            timings={"total": round(time.time() - t0, 3), "guardrail": True},
+        )
+
     # ── Step 1: Check semantic cache ──
     cached = check_cache(query)
     if cached:
@@ -237,6 +249,19 @@ async def voice_ask(
 
     if not query:
         raise HTTPException(status_code=400, detail="Query cannot be empty")
+
+    from services.guardrails import GuardrailDecision, enforce_guardrails
+
+    guard = await enforce_guardrails(query)
+    if guard.decision == GuardrailDecision.REJECT:
+        return JSONResponse(content={
+            "answer": guard.rejection_message,
+            "audio_url": "",
+            "confidence": 1.0,
+            "cached": False,
+            "session_id": session_id,
+            "timings": {"total": round(time.time() - t0, 3), "guardrail": True},
+        })
 
     # ── Step 1: Check semantic cache ──
     cached_result = check_cache(query)

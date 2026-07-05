@@ -21,7 +21,7 @@ logger = get_logger(__name__)
 _reranker: CrossEncoder | None = None
 
 # Lightweight cross-encoder optimized for speed
-RERANKER_MODEL = "cross-encoder/ms-marco-MiniLM-L-6-v2"
+RERANKER_MODEL = "BAAI/bge-reranker-v2-m3"
 
 
 def get_reranker() -> CrossEncoder:

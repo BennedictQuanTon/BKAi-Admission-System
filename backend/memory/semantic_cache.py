@@ -15,7 +15,7 @@ import numpy as np
 import redis
 
 from config.settings import get_settings
-from ingestion.embedder import get_embedding_model
+from ingestion.embedder import encode_query
 from utils.logger import get_logger
 
 logger = get_logger(__name__)
@@ -77,6 +77,9 @@ def get_redis_stats() -> redis.Redis:
 
 def _embed_query(query: str) -> list[float]:
     """Embed a query for cache similarity comparison."""
+    if "bge-m3" in get_settings().embedding.model.lower():
+        return encode_query(query, return_sparse=False)[0]
+    from ingestion.embedder import get_embedding_model
     model = get_embedding_model()
     return model.encode([query], normalize_embeddings=True).tolist()[0]
 
@@ -105,7 +108,13 @@ def check_cache(query: str) -> dict | None:
     try:
         query_emb = _embed_query(query)
 
-        # Scan all cached entries
+        from memory.redis_vector_cache import vector_cache_search
+        vector_hit = vector_cache_search(r, query_emb, threshold)
+        if vector_hit:
+            logger.info("cache_hit", similarity=vector_hit.get("similarity"))
+            return vector_hit
+
+        # Legacy fallback scan
         keys = r.keys(f"{CACHE_PREFIX}*")
         best_match = None
         best_sim = 0.0
@@ -165,7 +174,25 @@ def store_in_cache(
     try:
         query_emb = _embed_query(query)
         cache_key = f"{CACHE_PREFIX}{hashlib.md5(query.encode()).hexdigest()}"
+        payload = {
+            "timings": timings or {},
+            "sources": sources or [],
+            "timestamp": time.time(),
+        }
 
+        from memory.redis_vector_cache import vector_cache_store
+        vector_cache_store(
+            r,
+            cache_key,
+            query,
+            answer,
+            query_emb,
+            confidence,
+            settings.cache.cache_ttl_unrated,
+            payload,
+        )
+
+        # Keep JSON copy for feedback updates
         entry = {
             "query": query,
             "answer": answer,
@@ -176,9 +203,8 @@ def store_in_cache(
             "timings": timings or {},
             "sources": sources or [],
         }
-
         r.setex(
-            cache_key,
+            f"{cache_key}:meta",
             settings.cache.cache_ttl_unrated,
             json.dumps(entry, ensure_ascii=False),
         )
@@ -203,21 +229,23 @@ def update_feedback(query: str, feedback: str) -> bool:
 
     try:
         cache_key = f"{CACHE_PREFIX}{hashlib.md5(query.encode()).hexdigest()}"
-        data = r.get(cache_key)
+        data = r.get(f"{cache_key}:meta") or r.get(cache_key)
         if not data:
             return False
 
-        entry = json.loads(data)
+        entry = json.loads(data) if isinstance(data, str) else json.loads(data)
         entry["status"] = "liked" if feedback == "like" else "disliked"
         entry["feedback_time"] = time.time()
-
         ttl = (
             settings.cache.cache_ttl_liked
             if feedback == "like"
             else settings.cache.cache_ttl_unrated
         )
 
-        r.setex(cache_key, ttl, json.dumps(entry, ensure_ascii=False))
+        r.setex(f"{cache_key}:meta", ttl, json.dumps(entry, ensure_ascii=False))
+        if r.exists(cache_key):
+            r.hset(cache_key, mapping={"status": entry["status"]})
+            r.expire(cache_key, ttl)
         logger.info("feedback_updated", feedback=feedback, key=cache_key[-12:])
         return True
 
