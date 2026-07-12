@@ -2,7 +2,7 @@
 
 > **In-Depth Technical Report - Intelligent AI Admission Consulting System**<br/>
 > **Developed by:** Long Quan Ton<br/>
-> **Objective:** Production-ready, Scalable, Hybrid Cloud-Local (Privacy First), supports concurrent users.<br/>
+> **Objective:** Production-ready, Agentic RAG System, Multi-Agent LangGraph orchestration, Hybrid Search, and Redis Vector Semantic Caching.<br/>
 > **Version:** 2.0.0
 
 ---
