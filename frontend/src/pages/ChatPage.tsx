@@ -150,8 +150,8 @@ export default function ChatPage() {
   }
 
   return (
-    <div className="max-w-5xl mx-auto h-full w-full flex flex-col relative">
-      <div className={`flex-1 px-4 py-6 ${
+    <div className="flex-1 min-h-0 flex flex-col overflow-hidden">
+      <div className={`flex-1 min-h-0 px-4 py-6 max-w-5xl w-full mx-auto ${
         messages.length === 0
           ? "overflow-hidden flex flex-col justify-center"
           : "overflow-y-auto space-y-4"
@@ -320,7 +320,7 @@ export default function ChatPage() {
         <div ref={bottomRef} />
       </div>
 
-      <form onSubmit={onSubmit} className="border-t border-slate-200/60 p-4 bg-white/40 backdrop-blur-md relative z-20">
+      <form onSubmit={onSubmit} className="border-t border-slate-200/60 p-4 bg-white/40 backdrop-blur-md relative z-20 shrink-0">
         <div className="max-w-4xl mx-auto relative flex items-center bg-white border border-slate-200 rounded-2xl shadow-lg shadow-slate-100/50 p-1.5 focus-within:border-brand-500 focus-within:ring-2 focus-within:ring-brand-500/10 transition-all">
           <textarea
             value={input}
