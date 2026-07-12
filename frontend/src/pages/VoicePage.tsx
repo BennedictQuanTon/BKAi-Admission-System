@@ -121,32 +121,81 @@ export default function VoicePage() {
 
   return (
     <div className="max-w-3xl mx-auto px-4 py-8">
-      <h1 className="font-display text-3xl font-bold text-slate-900 mb-2">BkAI Voice</h1>
-      <p className="text-slate-600 mb-8">Hỏi bằng giọng nói về tuyển sinh HCMUT</p>
+      <h1 className="font-display text-4xl md:text-5xl font-black tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-brand-600 via-indigo-600 to-blue-500 mb-2 text-center">
+        BKAi Voice
+      </h1>
+      <p className="text-slate-500 font-medium text-sm md:text-base text-center mb-10">
+        Hỏi bằng giọng nói về tuyển sinh HCMUT
+      </p>
 
-      <div className="flex flex-col items-center gap-4 mb-8">
-        <button
-          type="button"
-          onClick={handleMic}
-          disabled={state === "transcribing" || state === "thinking" || state === "speaking"}
-          className={`w-28 h-28 rounded-full text-white text-3xl font-bold shadow-lg transition ${
-            state === "recording" ? "bg-red-600 animate-pulse" : "bg-brand-600 hover:bg-brand-700"
-          }`}
-          aria-label="Microphone"
-        >
-          🎙️
-        </button>
-        <p className="text-brand-700 font-medium" aria-live="polite">{status}</p>
+      <div className="flex flex-col items-center gap-6 mb-12">
+        <div className="relative">
+          {/* Audio wave pulse rings */}
+          {state === "recording" && (
+            <>
+              <div className="absolute inset-0 rounded-full bg-red-500/20 animate-ping" />
+              <div className="absolute -inset-4 rounded-full bg-red-500/10 animate-pulse" />
+            </>
+          )}
+          {state === "speaking" && (
+            <>
+              <div className="absolute inset-0 rounded-full bg-brand-500/20 animate-ping" />
+              <div className="absolute -inset-4 rounded-full bg-brand-500/10 animate-pulse" />
+            </>
+          )}
+          <button
+            type="button"
+            onClick={handleMic}
+            disabled={state === "transcribing" || state === "thinking" || state === "speaking"}
+            className={`relative w-28 h-28 rounded-full text-white text-3xl shadow-xl flex items-center justify-center transition-all duration-300 hover:scale-105 ${
+              state === "recording"
+                ? "bg-gradient-to-tr from-red-600 to-rose-500 shadow-red-500/25"
+                : state === "speaking"
+                ? "bg-gradient-to-tr from-brand-600 to-indigo-600 shadow-brand-500/25"
+                : "bg-gradient-to-tr from-brand-600 to-indigo-600 shadow-brand-500/20 hover:shadow-brand-500/30"
+            }`}
+            aria-label="Microphone"
+          >
+            {state === "recording" ? (
+              <svg className="w-10 h-10 animate-pulse" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M9 10a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 01-1 1h-4a1 1 0 01-1-1v-4z" />
+              </svg>
+            ) : (
+              <svg className="w-10 h-10" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
+              </svg>
+            )}
+          </button>
+        </div>
+        <p className="text-brand-600 font-semibold text-xs tracking-wide uppercase px-4 py-1.5 rounded-full bg-brand-50 border border-brand-100/50 animate-pulse" aria-live="polite">
+          {status}
+        </p>
       </div>
 
-      <div className="space-y-4">
+      <div className="space-y-4 max-w-2xl mx-auto">
         {messages.map((msg) => (
-          <div key={msg.id} className={`rounded-2xl p-4 ${msg.role === "user" ? "bg-brand-50" : "bg-surface border"}`}>
-            <div className="text-xs uppercase text-slate-500 mb-1">{msg.role === "user" ? "Bạn" : "BkAI"}</div>
-            <p className="text-[16px]">{msg.text}</p>
-            {msg.audioUrl && (
-              <audio controls src={msg.audioUrl} className="mt-3 w-full" />
-            )}
+          <div
+            key={msg.id}
+            className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}
+          >
+            <div
+              className={`max-w-[85%] px-4 py-3.5 shadow-sm transition-all duration-300 ${
+                msg.role === "user"
+                  ? "bg-gradient-to-tr from-brand-600 via-brand-600 to-indigo-600 text-white rounded-2xl rounded-tr-sm"
+                  : "bg-white/80 backdrop-blur-sm border border-slate-200/60 text-slate-800 rounded-2xl rounded-tl-sm"
+              }`}
+            >
+              <div className={`text-[10px] uppercase tracking-wider mb-1.5 font-bold ${msg.role === "user" ? "text-white/80" : "text-slate-400"}`}>
+                {msg.role === "user" ? "Bạn" : "BKAi"}
+              </div>
+              <p className="text-[15px] leading-relaxed">{msg.text}</p>
+              {msg.audioUrl && (
+                <div className="mt-3.5 pt-3 border-t border-slate-100">
+                  <audio controls src={msg.audioUrl} className="w-full h-8 accent-brand-600" />
+                </div>
+              )}
+            </div>
           </div>
         ))}
       </div>
