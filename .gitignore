@@ -1,20 +1,41 @@
+# ============================================================
+# BKAi — .gitignore
+# ============================================================
+
+# ===== OS =====
+.DS_Store
+**/.DS_Store
+Thumbs.db
+desktop.ini
+ehthumbs.db
+
+# ===== IDE / Editor =====
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+*.sublime-project
+*.sublime-workspace
+
 # ===== Python =====
 __pycache__/
 *.py[cod]
 *$py.class
 *.so
 *.egg-info/
-dist/
-build/
-.eggs/
 *.egg
+.eggs/
+build/
 
 # ===== Virtual Environment =====
 .venv/
 venv/
 env/
+ENV/
+.python-version
 
-# ===== Environment Variables =====
+# ===== Environment Variables (SENSITIVE) =====
 .env
 .env.*
 !.env.example
@@ -28,31 +49,49 @@ dashboard/.env
 dashboard/.env.*
 !dashboard/.env.example
 
-# ===== IDE =====
-.vscode/
-.idea/
-*.swp
-*.swo
-*~
-
-# ===== OS =====
-.DS_Store
-Thumbs.db
-
-# ===== Vector DB / Cache Data =====
-backend/memory/vector_db/
+# ===== Data Files (SENSITIVE — raw knowledge base, do NOT leak) =====
+backend/data/raw/
+backend/data/csv/
+backend/data/pdf/
+backend/data/docx/
 backend/data/processed/
-.qdrant/
+
+# ===== Binary / Pickle artifacts (generated, large) =====
+*.pkl
+*.pickle
+*.bin
+*.mmap
+
+# ===== Vector DB / Cache (generated runtime data, not for VCS) =====
+backend/.qdrant/
+backend/memory/vector_db/
+backend/memory/redis_data/
 
 # ===== Node.js =====
 node_modules/
 .next/
 dist/
+.cache/
+*.tsbuildinfo
 
 # ===== Logs =====
 *.log
 logs/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# ===== Docker overrides (local-only) =====
+docker-compose.override.yml
+docker-compose.local.yml
 
 # ===== Misc =====
 *.bak
 *.tmp
+*.swp
+coverage/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+htmlcov/
