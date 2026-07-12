@@ -10,10 +10,28 @@ import Chart from "chart.js/auto";
 // ═══════════════════════════════════════════
 // Configuration
 // ═══════════════════════════════════════════
-const API_BASE = "http://localhost:8000";
+const API_BASE = window.location.origin.includes("localhost") 
+  ? "http://localhost:8000" 
+  : window.location.origin;
+const WS_BASE = API_BASE.replace(/^http/, "ws");
+
 const ENDPOINTS = {
   stats: `${API_BASE}/api/stats`,
   health: `${API_BASE}/api/health`,
+  evaluate: `${API_BASE}/api/admin/evaluate`,
+};
+
+const STEP_TRANSLATIONS = {
+  start: "Initialization",
+  guardrail: "Guardrails (Safety Check)",
+  cache: "Semantic Cache Check",
+  query_rewrite: "Query Rewrite (Optimization)",
+  retrieve: "Retrieval (RAG Docs Search)",
+  evaluate_results: "Evaluation (RAG Quality)",
+  generate: "Generation (LLM Output)",
+  self_reflect: "Self-Reflection (Quality Verification)",
+  complete: "Resolution Completed",
+  error: "System Exception",
 };
 
 // ═══════════════════════════════════════════
@@ -73,6 +91,7 @@ function init() {
   fetchStats();
   fetchHistory(currentHistoryHours);
   startAutoRefresh();
+  setupWebSocket();
 }
 
 let currentHistoryHours = 24;
@@ -136,7 +155,7 @@ async function checkHealth() {
       setUnhealthy("Unhealthy");
     }
   } catch {
-    setUnhealthy("Không thể kết nối backend");
+    setUnhealthy("Cannot connect to backend");
   }
 }
 
@@ -174,7 +193,7 @@ async function fetchStats() {
     checkHealth();
   } catch (err) {
     console.error("[Dashboard] Fetch stats error:", err);
-    setUnhealthy("Lỗi kết nối API");
+    setUnhealthy("API Connection Error");
   }
 }
 
@@ -192,7 +211,7 @@ function startAutoRefresh() {
 
 function updateLastUpdated() {
   const now = new Date();
-  elements.lastUpdated.textContent = now.toLocaleTimeString("vi-VN", {
+  elements.lastUpdated.textContent = now.toLocaleTimeString("en-US", {
     hour: "2-digit",
     minute: "2-digit",
     second: "2-digit",
@@ -229,7 +248,7 @@ function updateKPIs(data) {
   
   if (data.recent_errors && data.recent_errors.length > 0) {
     const lastError = data.recent_errors[0];
-    const t = new Date(lastError.timestamp * 1000).toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" });
+    const t = new Date(lastError.timestamp * 1000).toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" });
     elements.lastErrorTime.textContent = t;
   } else {
     elements.lastErrorTime.textContent = "--";
@@ -244,9 +263,71 @@ function animateValue(el, newValue) {
   }
 }
 
+// WebSocket setup for streaming progress logs
+function setupWebSocket() {
+  const wsUrl = `${WS_BASE}/ws/dashboard`;
+  const ws = new WebSocket(wsUrl);
+
+  ws.onmessage = (event) => {
+    try {
+      const data = JSON.parse(event.data);
+      if (data.type === "progress") {
+        appendLiveLog(data);
+      }
+    } catch (err) {
+      console.error("[Dashboard WS] Error parsing message:", err);
+    }
+  };
+
+  ws.onclose = () => {
+    console.log("[Dashboard WS] Connection closed. Reconnecting in 3 seconds...");
+    setTimeout(setupWebSocket, 3000);
+  };
+
+  ws.onerror = (err) => {
+    console.error("[Dashboard WS] WebSocket error:", err);
+  };
+}
+
+function appendLiveLog(data) {
+  const consoleEl = document.getElementById("liveLogsConsole");
+  if (!consoleEl) return;
+
+  const placeholder = consoleEl.querySelector(".placeholder");
+  if (placeholder) {
+    placeholder.remove();
+  }
+
+  const logTime = new Date(data.timestamp * 1000).toLocaleTimeString("en-US");
+  const stepLabel = STEP_TRANSLATIONS[data.step] || data.step;
+  let statusClass = "step-running";
+  if (data.status === "done") statusClass = "step-done";
+  if (data.status === "error") statusClass = "step-error";
+
+  const line = document.createElement("div");
+  line.className = "console-line";
+  
+  const elapsedStr = data.elapsed !== undefined ? ` (${data.elapsed}s)` : "";
+  const sessionStr = `<span class="console-session">[Session: ${data.session_id.slice(0, 6)}...]</span>`;
+
+  line.innerHTML = `
+    <span class="console-time">[${logTime}]</span>
+    ${sessionStr}
+    <span class="console-step ${statusClass}">[${stepLabel}]</span>
+    <span class="console-msg">${escapeHtml(data.message)}</span>
+    <span class="console-elapsed">${elapsedStr}</span>
+  `;
+
+  consoleEl.appendChild(line);
+  consoleEl.scrollTop = consoleEl.scrollHeight;
+
+  while (consoleEl.children.length > 100) {
+    consoleEl.removeChild(consoleEl.firstChild);
+  }
+}
+
 function flashValue(el) {
   el.classList.remove("updated");
-  // Force reflow
   void el.offsetWidth;
   el.classList.add("updated");
 }
@@ -255,7 +336,6 @@ function flashValue(el) {
 // Charts
 // ═══════════════════════════════════════════
 function initCharts() {
-  // Global Chart.js defaults
   Chart.defaults.color = "#9898b0";
   Chart.defaults.borderColor = "rgba(255, 255, 255, 0.06)";
   Chart.defaults.font.family = "'Inter', sans-serif";
@@ -273,19 +353,19 @@ function initSatisfactionChart() {
   satisfactionChart = new Chart(ctx, {
     type: "doughnut",
     data: {
-      labels: ["Hài lòng", "Chưa hài lòng", "Chưa đánh giá"],
+      labels: ["Correct", "Incorrect", "Unrated"],
       datasets: [
         {
           data: [0, 0, 0],
           backgroundColor: [
-            "rgba(52, 211, 153, 0.8)",
-            "rgba(248, 113, 113, 0.8)",
-            "rgba(251, 191, 36, 0.6)",
+            "rgba(16, 185, 129, 0.8)", // Emerald green
+            "rgba(239, 68, 68, 0.8)",   // Rose red
+            "rgba(245, 158, 11, 0.6)",  // Amber yellow
           ],
           borderColor: [
-            "rgba(52, 211, 153, 1)",
-            "rgba(248, 113, 113, 1)",
-            "rgba(251, 191, 36, 1)",
+            "rgba(16, 185, 129, 1)",
+            "rgba(239, 68, 68, 1)",
+            "rgba(245, 158, 11, 1)",
           ],
           borderWidth: 2,
           hoverOffset: 8,
@@ -332,10 +412,10 @@ function initTimingsChart() {
   timingsChart = new Chart(ctx, {
     type: "bar",
     data: {
-      labels: ["TB Phản hồi", "TB Build Answer"],
+      labels: ["Avg Response", "Avg Build Answer"],
       datasets: [
         {
-          label: "Thời gian (giây)",
+          label: "Time (seconds)",
           data: [0, 0],
           backgroundColor: [
             "rgba(99, 102, 241, 0.6)",
@@ -394,7 +474,7 @@ function initTrendChart() {
       labels: [],
       datasets: [
         {
-          label: "Tổng câu hỏi",
+          label: "Total Questions",
           data: [],
           borderColor: "rgba(96, 165, 250, 1)",
           backgroundColor: "rgba(96, 165, 250, 0.1)",
@@ -408,15 +488,15 @@ function initTrendChart() {
           borderWidth: 2,
         },
         {
-          label: "Hài lòng",
+          label: "Correct Answers",
           data: [],
-          borderColor: "rgba(52, 211, 153, 1)",
-          backgroundColor: "rgba(52, 211, 153, 0.05)",
+          borderColor: "rgba(16, 185, 129, 1)",
+          backgroundColor: "rgba(16, 185, 129, 0.05)",
           fill: true,
           tension: 0.4,
           pointRadius: 2,
           pointHoverRadius: 5,
-          pointBackgroundColor: "rgba(52, 211, 153, 1)",
+          pointBackgroundColor: "rgba(16, 185, 129, 1)",
           pointBorderColor: "#12121a",
           pointBorderWidth: 2,
           borderWidth: 1.5,
@@ -484,7 +564,7 @@ function updateCharts(data) {
   // Trend line
   const labels = statsHistory.map((s) => {
     const d = new Date(s.timestamp);
-    return d.toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+    return d.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
   });
 
   trendChart.data.labels = labels;
@@ -497,13 +577,13 @@ function updateCharts(data) {
 // Recent Questions Feed
 // ═══════════════════════════════════════════
 function updateFeed(questions) {
-  elements.feedCount.textContent = `${questions.length} câu hỏi`;
+  elements.feedCount.textContent = `${questions.length} questions`;
 
   if (questions.length === 0) {
     elements.feedList.innerHTML = `
       <div class="feed-empty">
         <span class="feed-empty-icon">📭</span>
-        <p>Chưa có câu hỏi nào</p>
+        <p>No questions yet</p>
       </div>
     `;
     return;
@@ -512,7 +592,7 @@ function updateFeed(questions) {
   elements.feedList.innerHTML = questions
     .map((q, i) => {
       const time = q.timestamp
-        ? new Date(q.timestamp * 1000).toLocaleTimeString("vi-VN", {
+        ? new Date(q.timestamp * 1000).toLocaleTimeString("en-US", {
             hour: "2-digit",
             minute: "2-digit",
           })
@@ -547,16 +627,16 @@ function updateFeed(questions) {
 function getFeedbackChip(feedback) {
   switch (feedback) {
     case "like":
-      return '<span class="feed-meta-chip liked">👍 Liked</span>';
+      return '<span class="feed-meta-chip liked">👍 Correct</span>';
     case "dislike":
-      return '<span class="feed-meta-chip disliked">👎 Disliked</span>';
+      return '<span class="feed-meta-chip disliked">👎 Incorrect</span>';
     default:
       return '<span class="feed-meta-chip unrated">⏳ Unrated</span>';
   }
 }
 
 // ═══════════════════════════════════════════
-// Pipeline Visualization
+// Pipeline Visualization & Evaluation
 // ═══════════════════════════════════════════
 window.selectQuestion = function (index) {
   if (!currentStats || !currentStats.recent_questions) return;
@@ -576,6 +656,33 @@ window.selectQuestion = function (index) {
 
   // Show detail
   showPipelineDetail(q);
+};
+
+window.evaluateAnswer = async function (questionId, feedback) {
+  try {
+    const res = await fetch(ENDPOINTS.evaluate, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        question_id: questionId,
+        feedback: feedback,
+      }),
+    });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    
+    // Refresh dashboard stats
+    await fetchStats();
+    
+    // Re-select current question to update detail details view
+    if (selectedQuestion !== null) {
+      window.selectQuestion(selectedQuestion);
+    }
+  } catch (err) {
+    console.error("[Dashboard] Evaluation error:", err);
+    alert("Failed to save evaluation. Please try again.");
+  }
 };
 
 function updatePipelineNodes(q) {
@@ -607,13 +714,13 @@ function updatePipelineNodes(q) {
     statuses.nodeCacheStatus.style.color = "#22d3ee";
 
     nodes.nodeRewrite.classList.add("skip");
-    statuses.nodeRewriteStatus.textContent = "Bỏ qua";
+    statuses.nodeRewriteStatus.textContent = "Skipped";
     nodes.nodeRetrieval.classList.add("skip");
-    statuses.nodeRetrievalStatus.textContent = "Bỏ qua";
+    statuses.nodeRetrievalStatus.textContent = "Skipped";
     nodes.nodeGenerate.classList.add("skip");
-    statuses.nodeGenerateStatus.textContent = "Bỏ qua";
+    statuses.nodeGenerateStatus.textContent = "Skipped";
     nodes.nodeReflect.classList.add("skip");
-    statuses.nodeReflectStatus.textContent = "Bỏ qua";
+    statuses.nodeReflectStatus.textContent = "Skipped";
   } else {
     // Full pipeline
     nodes.nodeCache.classList.add("done");
@@ -640,24 +747,24 @@ function updatePipelineNodes(q) {
 
 function showPipelineDetail(q) {
   const time = q.timestamp
-    ? new Date(q.timestamp * 1000).toLocaleString("vi-VN")
+    ? new Date(q.timestamp * 1000).toLocaleString("en-US")
     : "N/A";
 
   const feedbackLabel =
     q.feedback === "like"
-      ? "👍 Hài lòng"
+      ? "👍 Correct"
       : q.feedback === "dislike"
-      ? "👎 Chưa hài lòng"
-      : "⏳ Chưa đánh giá";
+      ? "👎 Incorrect"
+      : "⏳ Unrated";
 
   const trace = q.trace || {};
   const rewritten = trace.rewritten_queries && trace.rewritten_queries.length > 0 
     ? trace.rewritten_queries.map(rq => `<li>${escapeHtml(rq)}</li>`).join('')
-    : "Không có";
+    : "None";
     
   const sources = trace.sources && trace.sources.length > 0
     ? trace.sources.map(s => `<div class="source-chip">📄 ${escapeHtml(s)}</div>`).join('')
-    : "Không sử dụng tài liệu";
+    : "No document sources used";
     
   const timings = trace.step_timings || {};
   let timingsHtml = "";
@@ -685,34 +792,44 @@ function showPipelineDetail(q) {
       </div>
       
       <div class="trace-section">
-        <h4 class="trace-title">📝 Câu hỏi gốc</h4>
+        <h4 class="trace-title">Original Query</h4>
         <div class="trace-box">${escapeHtml(q.query || "N/A")}</div>
       </div>
       
       <div class="trace-section">
-        <h4 class="trace-title">✏️ Rewritten Queries (Hops: ${trace.retrieval_hops || 0})</h4>
+        <h4 class="trace-title">Rewritten Queries (Hops: ${trace.retrieval_hops || 0})</h4>
         <ul class="trace-list">${rewritten}</ul>
       </div>
       
       <div class="trace-section">
-        <h4 class="trace-title">🔍 Tài liệu (Sources)</h4>
+        <h4 class="trace-title">Sources</h4>
         <div class="source-container">${sources}</div>
       </div>
       
       <div class="trace-section">
-        <h4 class="trace-title">⏱ Step Timings</h4>
+        <h4 class="trace-title">Step Timings</h4>
         ${timingsHtml}
       </div>
 
       <div class="trace-section">
-        <h4 class="trace-title">💬 Trả lời</h4>
+        <h4 class="trace-title">Generated Answer</h4>
         <div class="trace-box">${escapeHtml((q.answer || "N/A").substring(0, 300))}${(q.answer || "").length > 300 ? "..." : ""}</div>
       </div>
       
-      <div class="trace-meta">
+      <div class="trace-meta" style="margin-bottom: 12px;">
         <span class="meta-chip">⚡ Cache: ${q.cached ? "Hit" : "Miss"}</span>
-        <span class="meta-chip">⭐ Đánh giá: ${feedbackLabel}</span>
+        <span class="meta-chip">⭐ Evaluation: ${feedbackLabel}</span>
         <span class="meta-chip">🕐 ${time}</span>
+      </div>
+
+      <div class="evaluate-actions" style="margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--border); display: flex; align-items: center; gap: 12px;">
+        <span style="font-size: 11px; font-weight: 600; color: var(--text-secondary);">Evaluate Answer:</span>
+        <button onclick="window.evaluateAnswer('${q.id}', 'like')" class="eval-btn eval-btn-like">
+          ✓ Correct
+        </button>
+        <button onclick="window.evaluateAnswer('${q.id}', 'dislike')" class="eval-btn eval-btn-dislike">
+          ✗ Incorrect
+        </button>
       </div>
     </div>
   `;

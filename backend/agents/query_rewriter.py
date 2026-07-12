@@ -14,6 +14,8 @@ from config.prompts import QUERY_REWRITER_PROMPT
 from services.llm_factory import acquire_rpm_slot, get_fast_llm
 from utils.logger import AgentTracer
 
+from api.dashboard_manager import stream_progress
+
 tracer = AgentTracer("query_rewriter")
 
 
@@ -25,6 +27,17 @@ class RewriteOutput(BaseModel):
 async def query_rewrite_node(state: AgentState) -> dict:
     t0 = time.time()
     query = state["original_query"]
+    session_id = state.get("session_id", "")
+    query_id = state.get("query_id", "")
+
+    stream_progress(
+        session_id=session_id,
+        query_id=query_id,
+        step="query_rewrite",
+        status="running",
+        message="Analyzing and optimizing query (Query Rewrite)...",
+        query=query,
+    )
     tracer.start("rewrite", query=query[:80])
 
     try:
@@ -47,6 +60,16 @@ async def query_rewrite_node(state: AgentState) -> dict:
 
     elapsed = time.time() - t0
     tracer.end("rewrite", elapsed=round(elapsed, 2))
+
+    queries_str = ", ".join(f"'{q}'" for q in rewritten["rewritten_queries"])
+    stream_progress(
+        session_id=session_id,
+        query_id=query_id,
+        step="query_rewrite",
+        status="done",
+        message=f"Query rewrite completed in {elapsed:.2f}s. Rewritten queries: {queries_str}",
+        elapsed=round(elapsed, 3),
+    )
 
     return {
         "rewritten_queries": rewritten["rewritten_queries"],

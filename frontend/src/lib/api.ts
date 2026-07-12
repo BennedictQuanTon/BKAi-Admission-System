@@ -3,6 +3,15 @@ const WS_BASE = API_BASE.replace(/^http/, "ws");
 
 export { API_BASE, WS_BASE };
 
+export function getSessionId(): string {
+  let sid = localStorage.getItem("bkai_session_id");
+  if (!sid) {
+    sid = crypto.randomUUID();
+    localStorage.setItem("bkai_session_id", sid);
+  }
+  return sid;
+}
+
 export type ChatMetadata = {
   cached?: boolean;
   confidence?: number;

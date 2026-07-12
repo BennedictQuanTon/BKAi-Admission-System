@@ -76,6 +76,7 @@ async def run_agent_pipeline(
     query: str,
     session_id: str = "default",
     chat_history: list[dict[str, str]] | None = None,
+    query_id: str = "",
 ) -> dict:
     t0 = time.time()
     tracer.start("pipeline", query=query[:80], session_id=session_id)
@@ -88,6 +89,7 @@ async def run_agent_pipeline(
         "original_query": query,
         "chat_history": chat_history,
         "session_id": session_id,
+        "query_id": query_id,
         "rewritten_queries": [],
         "hyde_document": "",
         "search_results": [],

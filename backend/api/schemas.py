@@ -83,3 +83,10 @@ class HealthResponse(BaseModel):
     status: str = "healthy"
     service: str = "BkAI"
     version: str = "1.0.0"
+
+
+class AdminEvaluateRequest(BaseModel):
+    """Admin feedback / correctness evaluation request."""
+    question_id: str
+    feedback: str = Field(..., pattern="^(like|dislike)$")
+

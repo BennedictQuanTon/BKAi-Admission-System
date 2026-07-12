@@ -14,11 +14,23 @@ from services.llm_factory import acquire_rpm_slot, get_primary_llm
 from services.stream_context import emit_token
 from utils.logger import AgentTracer
 
+from api.dashboard_manager import stream_progress
+
 tracer = AgentTracer("generator")
 
 
 async def generate_answer_node(state: AgentState) -> dict:
     t0 = time.time()
+    session_id = state.get("session_id", "")
+    query_id = state.get("query_id", "")
+
+    stream_progress(
+        session_id=session_id,
+        query_id=query_id,
+        step="generate",
+        status="running",
+        message="Synthesizing response and generating answer using LLM...",
+    )
     tracer.start("generate")
 
     query = state["original_query"]
@@ -71,6 +83,15 @@ async def generate_answer_node(state: AgentState) -> dict:
 
     elapsed = time.time() - t0
     tracer.end("generate", answer_len=len(answer), elapsed=round(elapsed, 2))
+
+    stream_progress(
+        session_id=session_id,
+        query_id=query_id,
+        step="generate",
+        status="done",
+        message=f"Answer generation completed in {elapsed:.2f}s. Answer length: {len(answer)} chars.",
+        elapsed=round(elapsed, 3),
+    )
 
     return {
         "generated_answer": answer,

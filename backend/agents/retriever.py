@@ -18,6 +18,8 @@ from tools.hybrid_search import hybrid_search
 from tools.reranker import rerank
 from utils.logger import AgentTracer
 
+from api.dashboard_manager import stream_progress
+
 tracer = AgentTracer("retriever")
 MAX_HOPS = 3
 
@@ -32,6 +34,16 @@ async def retrieve_node(state: AgentState) -> dict:
     settings = get_settings()
     queries = list(state.get("rewritten_queries", [state["original_query"]]))
     hyde_doc = state.get("hyde_document", "")
+    session_id = state.get("session_id", "")
+    query_id = state.get("query_id", "")
+
+    stream_progress(
+        session_id=session_id,
+        query_id=query_id,
+        step="retrieve",
+        status="running",
+        message=f"Querying vector database with {len(queries)} query variations (RAG)...",
+    )
 
     if hyde_doc and len(hyde_doc) > 50:
         queries.append(hyde_doc[:500])
@@ -58,6 +70,15 @@ async def retrieve_node(state: AgentState) -> dict:
     serialized = serialize_results(reranked)
     context = format_context(serialized, max_chars=4000)
 
+    stream_progress(
+        session_id=session_id,
+        query_id=query_id,
+        step="retrieve",
+        status="done",
+        message=f"Retrieval completed in {elapsed:.2f}s. Found {len(reranked)} relevant document chunks.",
+        elapsed=round(elapsed, 3),
+    )
+
     return {
         "search_results": serialize_results(all_results),
         "reranked_results": serialized,
@@ -73,6 +94,16 @@ async def retrieve_node(state: AgentState) -> dict:
 
 async def evaluate_results_node(state: AgentState) -> dict:
     t0 = time.time()
+    session_id = state.get("session_id", "")
+    query_id = state.get("query_id", "")
+
+    stream_progress(
+        session_id=session_id,
+        query_id=query_id,
+        step="evaluate_results",
+        status="running",
+        message="Evaluating completeness and relevance of retrieved documents...",
+    )
     tracer.start("evaluate_results")
 
     results = state.get("reranked_results", [])
@@ -92,6 +123,15 @@ async def evaluate_results_node(state: AgentState) -> dict:
 
     elapsed = time.time() - t0
     tracer.end("evaluate_results", decision=decision, elapsed=round(elapsed, 2))
+
+    stream_progress(
+        session_id=session_id,
+        query_id=query_id,
+        step="evaluate_results",
+        status="done",
+        message=f"Evaluation completed in {elapsed:.2f}s. Decision: {decision}.",
+        elapsed=round(elapsed, 3),
+    )
 
     return {
         "retrieval_decision": decision,

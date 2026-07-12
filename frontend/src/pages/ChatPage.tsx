@@ -1,7 +1,7 @@
 import { FormEvent, useEffect, useRef, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
-import { ChatMetadata, sendFeedback, WS_BASE } from "../lib/api";
+import { ChatMetadata, sendFeedback, WS_BASE, getSessionId } from "../lib/api";
 
 type Message = {
   id: string;
@@ -23,7 +23,7 @@ export default function ChatPage() {
   const [input, setInput] = useState("");
   const [status, setStatus] = useState("");
   const [loading, setLoading] = useState(false);
-  const [sessionId] = useState(() => crypto.randomUUID());
+  const [sessionId] = useState(() => getSessionId());
   const wsRef = useRef<WebSocket | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
 

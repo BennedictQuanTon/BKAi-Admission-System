@@ -26,8 +26,8 @@ class GeminiSettings(BaseSettings):
 
     model_config = SettingsConfigDict(env_prefix="GEMINI_")
 
-    model_primary: str = "gemini-2.5-flash-lite"
-    model_fast: str = "gemini-2.5-flash-lite"
+    model_primary: str = "gemini-3.1-flash-lite"
+    model_fast: str = "gemini-3.1-flash-lite"
     rpm_limit_lite: int = 10
     rpm_limit_flash: int = 10
     request_timeout: int = 120

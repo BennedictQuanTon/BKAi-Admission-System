@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="vi">
+<html lang="en">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <meta name="description" content="BKAi Monitoring Dashboard — Theo dõi hiệu suất hệ thống Tư vấn Tuyển sinh Bách Khoa" />
+  <meta name="description" content="BKAi Monitoring Dashboard — BKAi Admissions Advisory System Performance Tracker" />
   <title>BKAi — Monitoring Dashboard</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -32,21 +32,21 @@
       <div class="top-bar-center">
         <div class="health-badge" id="healthBadge">
           <span class="health-dot"></span>
-          <span class="health-text">Đang kiểm tra...</span>
+          <span class="health-text">Checking status...</span>
         </div>
       </div>
       <div class="top-bar-right">
         <div class="refresh-control">
-          <label class="refresh-label" for="refreshInterval">Tự động cập nhật:</label>
+          <label class="refresh-label" for="refreshInterval">Auto refresh:</label>
           <select id="refreshInterval" class="refresh-select">
-            <option value="5000">5 giây</option>
-            <option value="10000" selected>10 giây</option>
-            <option value="30000">30 giây</option>
-            <option value="60000">1 phút</option>
-            <option value="0">Tắt</option>
+            <option value="5000">5 seconds</option>
+            <option value="10000" selected>10 seconds</option>
+            <option value="30000">30 seconds</option>
+            <option value="60000">1 minute</option>
+            <option value="0">Off</option>
           </select>
         </div>
-        <button class="refresh-btn" id="refreshBtn" title="Cập nhật ngay">
+        <button class="refresh-btn" id="refreshBtn" title="Refresh now">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <polyline points="23 4 23 10 17 10"/>
             <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/>
@@ -69,7 +69,7 @@
           </div>
           <div class="kpi-body">
             <div class="kpi-value" id="totalQuestions">0</div>
-            <div class="kpi-label">Tổng câu hỏi</div>
+            <div class="kpi-label">Total Questions</div>
           </div>
         </div>
 
@@ -82,7 +82,7 @@
           </div>
           <div class="kpi-body">
             <div class="kpi-value" id="likedCount">0</div>
-            <div class="kpi-label">Hài lòng</div>
+            <div class="kpi-label">Correct</div>
           </div>
           <div class="kpi-badge kpi-badge-success" id="likedRate">0%</div>
         </div>
@@ -96,7 +96,7 @@
           </div>
           <div class="kpi-body">
             <div class="kpi-value" id="dislikedCount">0</div>
-            <div class="kpi-label">Chưa hài lòng</div>
+            <div class="kpi-label">Incorrect</div>
           </div>
           <div class="kpi-badge kpi-badge-danger" id="dislikedRate">0%</div>
         </div>
@@ -111,7 +111,7 @@
           </div>
           <div class="kpi-body">
             <div class="kpi-value" id="unratedCount">0</div>
-            <div class="kpi-label">Chưa đánh giá</div>
+            <div class="kpi-label">Unrated</div>
           </div>
         </div>
 
@@ -124,7 +124,7 @@
           </div>
           <div class="kpi-body">
             <div class="kpi-value" id="avgResponseTime">0s</div>
-            <div class="kpi-label">TB thời gian trả lời</div>
+            <div class="kpi-label">Avg Response Time</div>
           </div>
         </div>
 
@@ -136,7 +136,7 @@
           </div>
           <div class="kpi-body">
             <div class="kpi-value" id="cacheHitRate">0%</div>
-            <div class="kpi-label">Cache hit rate</div>
+            <div class="kpi-label">Cache Hit Rate</div>
           </div>
         </div>
 
@@ -150,7 +150,7 @@
           </div>
           <div class="kpi-body">
             <div class="kpi-value" id="errorCount">0</div>
-            <div class="kpi-label">Lỗi hệ thống</div>
+            <div class="kpi-label">System Errors</div>
           </div>
           <div class="kpi-badge kpi-badge-danger" id="lastErrorTime">--</div>
         </div>
@@ -166,16 +166,16 @@
           </div>
           <div class="kpi-body">
             <div class="kpi-value" id="activeSessions">0</div>
-            <div class="kpi-label">Phiên đang hoạt động</div>
+            <div class="kpi-label">Active Sessions</div>
           </div>
         </div>
       </section>
 
-      <!-- Charts Row -->
+      {/* Charts Row */}
       <section class="charts-row">
         <div class="chart-card" id="chartSatisfaction">
           <div class="card-header">
-            <h2 class="card-title">Mức độ hài lòng</h2>
+            <h2 class="card-title">Accuracy</h2>
             <span class="card-badge">Pie Chart</span>
           </div>
           <div class="chart-container">
@@ -185,7 +185,7 @@
 
         <div class="chart-card" id="chartTimings">
           <div class="card-header">
-            <h2 class="card-title">Thời gian xử lý</h2>
+            <h2 class="card-title">Processing Time</h2>
             <span class="card-badge">Bar Chart</span>
           </div>
           <div class="chart-container">
@@ -195,7 +195,7 @@
 
         <div class="chart-card" id="chartResponseTrend">
           <div class="card-header">
-            <h2 class="card-title">Xu hướng câu hỏi</h2>
+            <h2 class="card-title">Question Trend</h2>
             <div class="card-actions">
               <div class="time-range-selector" id="trendTimeRange">
                 <button class="time-chip" data-hours="1">1h</button>
@@ -210,18 +210,37 @@
         </div>
       </section>
 
-      <!-- Bottom Row: Recent Questions + Agent Pipeline -->
+      {/* Live System Logs Console Section */}
+      <section class="live-logs-section">
+        <div class="live-logs-card">
+          <div class="card-header">
+            <div class="card-title-group">
+              <h2 class="card-title">Live System Logs (All Sessions)</h2>
+              <div class="live-badge">
+                <span class="live-badge-dot"></span>
+                <span>LIVE</span>
+              </div>
+            </div>
+            <span class="card-badge font-mono">ws/dashboard</span>
+          </div>
+          <div class="live-logs-console" id="liveLogsConsole">
+            <div class="console-line placeholder">⏳ Waiting for active sessions queries...</div>
+          </div>
+        </div>
+      </section>
+
+      {/* Bottom Row: Recent Questions + Agent Pipeline */}
       <section class="bottom-row">
         <!-- Recent Questions Feed -->
         <div class="feed-card" id="feedCard">
           <div class="card-header">
-            <h2 class="card-title">Câu hỏi gần đây</h2>
-            <span class="card-badge" id="feedCount">0 câu hỏi</span>
+            <h2 class="card-title">Recent Questions</h2>
+            <span class="card-badge" id="feedCount">0 questions</span>
           </div>
           <div class="feed-list" id="feedList">
             <div class="feed-empty">
               <span class="feed-empty-icon">📭</span>
-              <p>Chưa có câu hỏi nào</p>
+              <p>No questions yet</p>
             </div>
           </div>
         </div>
@@ -236,7 +255,7 @@
             <div class="pipeline-flow">
               <div class="pipeline-node pipeline-node-start">
                 <div class="node-icon">📥</div>
-                <div class="node-label">Câu hỏi</div>
+                <div class="node-label">Input Query</div>
               </div>
               <div class="pipeline-arrow">
                 <svg width="40" height="20" viewBox="0 0 40 20"><path d="M0 10 L30 10 M25 5 L30 10 L25 15" stroke="currentColor" fill="none" stroke-width="1.5"/></svg>
@@ -283,26 +302,26 @@
               </div>
               <div class="pipeline-node pipeline-node-end">
                 <div class="node-icon">✅</div>
-                <div class="node-label">Trả lời</div>
+                <div class="node-label">Output Answer</div>
               </div>
             </div>
 
             <!-- Pipeline Legend -->
             <div class="pipeline-legend">
               <div class="legend-item">
-                <span class="legend-dot legend-dot-active"></span> Đang chạy
+                <span class="legend-dot legend-dot-active"></span> Running
               </div>
               <div class="legend-item">
-                <span class="legend-dot legend-dot-done"></span> Hoàn thành
+                <span class="legend-dot legend-dot-done"></span> Completed
               </div>
               <div class="legend-item">
-                <span class="legend-dot legend-dot-skip"></span> Bỏ qua
+                <span class="legend-dot legend-dot-skip"></span> Skipped
               </div>
             </div>
 
             <!-- Selected question detail -->
             <div class="pipeline-detail" id="pipelineDetail">
-              <p class="detail-hint">Chọn câu hỏi ở bên trái để xem chi tiết pipeline</p>
+              <p class="detail-hint">Select a question on the left to view pipeline details</p>
             </div>
           </div>
         </div>

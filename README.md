@@ -154,13 +154,13 @@ BKAi optimizes cost, rate limits, and latency by implementing a **Model Routing*
 
 | Task / Agent | Technology / Model | Design Rationale |
 | :--- | :--- | :--- |
-| **Query Rewriter** | `gemini-2.5-flash-lite` | Simple rewrites (HyDE + paraphrasing), optimized for speed. Enforces rate limits. |
-| **Retrieval Evaluator** | `gemini-2.5-flash-lite` | Evaluates if context is sufficient (Binary/Ternary). Low intelligence requirement. |
-| **Answer Generator** | `gemini-2.5-flash-lite` | Highly efficient, fast generation tier, handles markdown structures and streaming outputs. |
-| **Self-Reflection** | `gemini-2.5-flash-lite` | Evaluates factual correctness and hallucinations on the fast-lite model. |
+| **Query Rewriter** | `gemini-3.1-flash-lite` | Simple rewrites (HyDE + paraphrasing), optimized for speed. Enforces rate limits. |
+| **Retrieval Evaluator** | `gemini-3.1-flash-lite` | Evaluates if context is sufficient (Binary/Ternary). Low intelligence requirement. |
+| **Answer Generator** | `gemini-3.1-flash-lite` | Highly efficient, fast generation tier, handles markdown structures and streaming outputs. |
+| **Self-Reflection** | `gemini-3.1-flash-lite` | Evaluates factual correctness and hallucinations on the fast-lite model. |
 | **Embedding Model** | `sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2` | Lightweight multilingual embedding model, optimized for low memory usage and high speed. |
 | **Reranking Engine** | `BAAI/bge-reranker-base` | Lightweight Cross-Encoder model scoring query-document pairs, boosting precision with low memory usage. |
-| **Guardrails** | Rules + `gemini-2.5-flash-lite` | Regex pattern matching for scope boundaries, with fast LLM backup checking. |
+| **Guardrails** | Rules + `gemini-3.1-flash-lite` | Regex pattern matching for scope boundaries, with fast LLM backup checking. |
 | **Speech-to-Text (STT)** | `faster-whisper` (`base`) | Running locally on CPU. 3-stage custom correction layer for HCMUT terminologies. |
 | **Text-to-Speech (TTS)** | `edge-tts` (`vi-VN-HoaiMyNeural`)| Cloud neural voice offering high-fidelity, natural Vietnamese speech. |
 
@@ -236,7 +236,7 @@ Combines runtime history with database caches:
 | **Input Sanitization** | Special character strips, script injection prevention, and a strict limit of 500 characters. |
 | **Rate Limiting** | Connection middleware caps requests to 15 per minute per client IP, preventing server overloading. |
 | **CORS Whitelist** | Restricts API access exclusively to trusted origins: `localhost:5173`, `localhost:5174`, `localhost:5175`. |
-| **Domain Guardrails** | Two stages: Regex check against known topics/off-topic triggers, followed by a `gemini-2.5-flash-lite` filter. |
+| **Domain Guardrails** | Two stages: Regex check against known topics/off-topic triggers, followed by a `gemini-3.1-flash-lite` filter. |
 | **Scraper Sandbox** | The MCP web scraping utility is hardcoded to strictly scan domains within `hcmut.edu.vn` only. |
 
 ---
@@ -272,7 +272,7 @@ Docker Compose configures **4 services** (Redis Stack, Backend FastAPI, Frontend
 ```mermaid
 graph TB
     subgraph Cloud["Cloud APIs"]
-        Gemini["♊ Google Gemini API<br/>(gemini-2.5-flash-lite)"]
+        Gemini["♊ Google Gemini API<br/>(gemini-3.1-flash-lite)"]
     end
 
     subgraph Docker["Docker Compose Network"]
@@ -405,8 +405,8 @@ The primary configurations located in `backend/.env` are:
 | Variable | Default Value | Description |
 | :--- | :--- | :--- |
 | `GOOGLE_API_KEY` | `""` | Google Gemini API Authentication credential. |
-| `GEMINI_MODEL_PRIMARY` | `gemini-2.5-flash-lite` | Primary LLM for generating answers and reflection. |
-| `GEMINI_MODEL_FAST` | `gemini-2.5-flash-lite` | Lite LLM for query rewrites, evaluations, and guardrails. |
+| `GEMINI_MODEL_PRIMARY` | `gemini-3.1-flash-lite` | Primary LLM for generating answers and reflection. |
+| `GEMINI_MODEL_FAST` | `gemini-3.1-flash-lite` | Lite LLM for query rewrites, evaluations, and guardrails. |
 | `GEMINI_RPM_LIMIT_LITE` | `10` | Rate limit (requests per minute) for the Fast model. |
 | `GEMINI_RPM_LIMIT_FLASH`| `10` | Rate limit (requests per minute) for the Primary model. |
 | `REDIS_URL` | `redis://localhost:6380/0` | Connection URL for semantic caching and stats databases (uses `redis://redis:6379/0` in Docker network). |

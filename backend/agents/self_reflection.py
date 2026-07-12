@@ -15,6 +15,8 @@ from config.prompts import SELF_REFLECTION_PROMPT
 from services.llm_factory import acquire_rpm_slot, get_primary_llm
 from utils.logger import AgentTracer
 
+from api.dashboard_manager import stream_progress
+
 tracer = AgentTracer("self_reflection")
 CONFIDENCE_THRESHOLD = 0.7
 
@@ -27,6 +29,16 @@ class ReflectionOutput(BaseModel):
 
 async def self_reflect_node(state: AgentState) -> dict:
     t0 = time.time()
+    session_id = state.get("session_id", "")
+    query_id = state.get("query_id", "")
+
+    stream_progress(
+        session_id=session_id,
+        query_id=query_id,
+        step="self_reflect",
+        status="running",
+        message="Verifying answer precision and correctness (Self-Reflection)...",
+    )
     tracer.start("self_reflect")
 
     answer = state.get("generated_answer", "")
@@ -34,6 +46,13 @@ async def self_reflect_node(state: AgentState) -> dict:
     query = state["original_query"]
 
     if not answer:
+        stream_progress(
+            session_id=session_id,
+            query_id=query_id,
+            step="self_reflect",
+            status="done",
+            message="Self-reflection completed. Reason: Empty answer generated.",
+        )
         return {
             "answer_confidence": 0.0,
             "answer_issues": ["Empty answer generated"],
@@ -43,6 +62,14 @@ async def self_reflect_node(state: AgentState) -> dict:
     if not query_has_numeric_facts(query):
         elapsed = time.time() - t0
         tracer.end("self_reflect", confidence=0.85, acceptable=True, skipped=True)
+        stream_progress(
+            session_id=session_id,
+            query_id=query_id,
+            step="self_reflect",
+            status="done",
+            message=f"Self-reflection skipped for non-factual query ({elapsed:.2f}s).",
+            elapsed=round(elapsed, 3),
+        )
         return {
             "answer_confidence": 0.85,
             "answer_issues": [],
@@ -79,6 +106,16 @@ async def self_reflect_node(state: AgentState) -> dict:
         confidence=parsed["confidence"],
         acceptable=parsed["is_acceptable"],
         elapsed=round(elapsed, 2),
+    )
+
+    issues_str = f"Issues detected: {', '.join(parsed['issues'])}" if parsed.get("issues") else "No issues found."
+    stream_progress(
+        session_id=session_id,
+        query_id=query_id,
+        step="self_reflect",
+        status="done",
+        message=f"Self-reflection completed in {elapsed:.2f}s. Confidence: {parsed['confidence']*100:.0f}%. {issues_str}",
+        elapsed=round(elapsed, 3),
     )
 
     return {

@@ -19,12 +19,15 @@ from api.schemas import (
     FeedbackRequest, FeedbackResponse,
     StatsResponse, HealthResponse,
     VoiceTranscribeResponse, VoiceAskRequest, VoiceAskResponse,
+    AdminEvaluateRequest,
 )
 from memory.semantic_cache import (
     check_cache, store_in_cache,
     update_feedback, update_question_feedback,
-    record_question, get_stats, record_error
+    record_question, get_stats, record_error,
+    evaluate_question_by_id,
 )
+from api.dashboard_manager import stream_progress
 from memory.conversation import get_conversation_memory
 from workflows.main_graph import run_agent_pipeline
 from utils.logger import get_logger
@@ -46,32 +49,98 @@ async def chat(request: ChatRequest) -> ChatResponse:
     t0 = time.time()
     query = sanitize_input(request.query)
     session_id = request.session_id
+    query_id = f"q_{uuid.uuid4().hex[:8]}"
 
     if not query:
         raise HTTPException(status_code=400, detail="Query cannot be empty")
+
+    stream_progress(
+        session_id=session_id,
+        query_id=query_id,
+        step="start",
+        status="running",
+        message=f"Received query: '{query[:60]}...'",
+        query=query,
+    )
+
+    stream_progress(
+        session_id=session_id,
+        query_id=query_id,
+        step="guardrail",
+        status="running",
+        message="Checking safety guardrails...",
+    )
 
     from services.guardrails import GuardrailDecision, enforce_guardrails
 
     guard = await enforce_guardrails(query)
     if guard.decision == GuardrailDecision.REJECT:
+        response_time = time.time() - t0
+        stream_progress(
+            session_id=session_id,
+            query_id=query_id,
+            step="guardrail",
+            status="error",
+            message=f"Guardrail check failed: {guard.rejection_message}",
+        )
+        stream_progress(
+            session_id=session_id,
+            query_id=query_id,
+            step="complete",
+            status="done",
+            message=f"Processing terminated by guardrails in {response_time:.2f}s.",
+            elapsed=round(response_time, 3),
+        )
         return ChatResponse(
             answer=guard.rejection_message,
             confidence=1.0,
             cached=False,
             session_id=session_id,
-            timings={"total": round(time.time() - t0, 3), "guardrail": True},
+            timings={"total": round(response_time, 3), "guardrail": True},
         )
+
+    stream_progress(
+        session_id=session_id,
+        query_id=query_id,
+        step="guardrail",
+        status="done",
+        message="Guardrail check passed.",
+    )
+
+    stream_progress(
+        session_id=session_id,
+        query_id=query_id,
+        step="cache",
+        status="running",
+        message="Checking semantic cache for existing answers...",
+    )
 
     # ── Step 1: Check semantic cache ──
     cached = check_cache(query)
     if cached:
         response_time = time.time() - t0
+        stream_progress(
+            session_id=session_id,
+            query_id=query_id,
+            step="cache",
+            status="done",
+            message=f"Cache hit! Found similar question with confidence {cached.get('confidence', 1.0)*100:.0f}%.",
+        )
+        stream_progress(
+            session_id=session_id,
+            query_id=query_id,
+            step="complete",
+            status="done",
+            message=f"Query resolved using cache in {response_time:.2f}s.",
+            elapsed=round(response_time, 3),
+        )
         record_question(
             query=query,
             answer=cached["answer"],
             response_time=response_time,
             build_time=0.0,
             cached=True,
+            question_id=query_id,
         )
         return ChatResponse(
             answer=cached["answer"],
@@ -81,19 +150,44 @@ async def chat(request: ChatRequest) -> ChatResponse:
             timings={"total": round(response_time, 3), "cache": True},
         )
 
+    stream_progress(
+        session_id=session_id,
+        query_id=query_id,
+        step="cache",
+        status="done",
+        message="Cache miss. Invoking agent workflows...",
+    )
+
     # ── Step 2: Run agent pipeline ──
     try:
         result = await run_agent_pipeline(
             query=query,
             session_id=session_id,
+            query_id=query_id,
         )
     except Exception as e:
         logger.error("chat_pipeline_error", error=str(e))
         record_error("pipeline_error", str(e))
+        stream_progress(
+            session_id=session_id,
+            query_id=query_id,
+            step="complete",
+            status="error",
+            message=f"Agent workflow error: {str(e)}",
+        )
         raise HTTPException(status_code=500, detail="Internal processing error")
 
     response_time = time.time() - t0
     build_time = result.get("timings", {}).get("total", response_time)
+
+    stream_progress(
+        session_id=session_id,
+        query_id=query_id,
+        step="complete",
+        status="done",
+        message=f"Query processed successfully in {response_time:.2f}s.",
+        elapsed=round(response_time, 3),
+    )
 
     # ── Step 3: Store in cache and record stats ──
     store_in_cache(
@@ -118,6 +212,7 @@ async def chat(request: ChatRequest) -> ChatResponse:
             "retrieval_decision": result.get("retrieval_decision", ""),
             "step_timings": result.get("timings", {}),
         },
+        question_id=query_id,
     )
 
     return ChatResponse(
@@ -145,6 +240,17 @@ async def feedback(request: FeedbackRequest) -> FeedbackResponse:
         status="ok" if success else "not_found",
         cached=success,
     )
+
+
+@router.post("/admin/evaluate")
+async def admin_evaluate(request: AdminEvaluateRequest):
+    """
+    Evaluate a question response correctness from the admin dashboard.
+    """
+    success = evaluate_question_by_id(request.question_id, request.feedback)
+    if not success:
+        raise HTTPException(status_code=404, detail="Question not found")
+    return {"status": "ok"}
 
 
 @router.get("/stats", response_model=StatsResponse)
@@ -246,22 +352,72 @@ async def voice_ask(
     t0 = time.time()
     query = sanitize_input(request.text)
     session_id = request.session_id
+    query_id = f"q_{uuid.uuid4().hex[:8]}"
 
     if not query:
         raise HTTPException(status_code=400, detail="Query cannot be empty")
+
+    stream_progress(
+        session_id=session_id,
+        query_id=query_id,
+        step="start",
+        status="running",
+        message=f"Received voice query: '{query[:60]}...'",
+        query=query,
+    )
+
+    stream_progress(
+        session_id=session_id,
+        query_id=query_id,
+        step="guardrail",
+        status="running",
+        message="Checking safety guardrails...",
+    )
 
     from services.guardrails import GuardrailDecision, enforce_guardrails
 
     guard = await enforce_guardrails(query)
     if guard.decision == GuardrailDecision.REJECT:
+        response_time = time.time() - t0
+        stream_progress(
+            session_id=session_id,
+            query_id=query_id,
+            step="guardrail",
+            status="error",
+            message=f"Guardrail check failed: {guard.rejection_message}",
+        )
+        stream_progress(
+            session_id=session_id,
+            query_id=query_id,
+            step="complete",
+            status="done",
+            message=f"Processing terminated by guardrails in {response_time:.2f}s.",
+            elapsed=round(response_time, 3),
+        )
         return JSONResponse(content={
             "answer": guard.rejection_message,
             "audio_url": "",
             "confidence": 1.0,
             "cached": False,
             "session_id": session_id,
-            "timings": {"total": round(time.time() - t0, 3), "guardrail": True},
+            "timings": {"total": round(response_time, 3), "guardrail": True},
         })
+
+    stream_progress(
+        session_id=session_id,
+        query_id=query_id,
+        step="guardrail",
+        status="done",
+        message="Guardrail check passed.",
+    )
+
+    stream_progress(
+        session_id=session_id,
+        query_id=query_id,
+        step="cache",
+        status="running",
+        message="Checking semantic cache for existing answers...",
+    )
 
     # ── Step 1: Check semantic cache ──
     cached_result = check_cache(query)
@@ -269,22 +425,56 @@ async def voice_ask(
     if cached_result:
         ai_answer = cached_result["answer"]
         response_time = time.time() - t0
+        stream_progress(
+            session_id=session_id,
+            query_id=query_id,
+            step="cache",
+            status="done",
+            message=f"Cache hit! Found similar question with confidence {cached_result.get('confidence', 1.0)*100:.0f}%.",
+        )
+        stream_progress(
+            session_id=session_id,
+            query_id=query_id,
+            step="complete",
+            status="done",
+            message=f"Query resolved using cache in {response_time:.2f}s.",
+            elapsed=round(response_time, 3),
+        )
         record_question(
             query=query,
             answer=ai_answer,
             response_time=response_time,
             build_time=0.0,
             cached=True,
+            question_id=query_id,
         )
         confidence = cached_result.get("confidence", 1.0)
         is_cached = True
         timings = {"total": round(response_time, 3)}
     else:
+        stream_progress(
+            session_id=session_id,
+            query_id=query_id,
+            step="cache",
+            status="done",
+            message="Cache miss. Invoking agent workflows...",
+        )
         # ── Step 2: Run full RAG pipeline ──
         try:
-            result = await run_agent_pipeline(query=query, session_id=session_id)
+            result = await run_agent_pipeline(
+                query=query,
+                session_id=session_id,
+                query_id=query_id,
+            )
         except Exception as e:
             logger.error("voice_pipeline_error", error=str(e))
+            stream_progress(
+                session_id=session_id,
+                query_id=query_id,
+                step="complete",
+                status="error",
+                message=f"Agent workflow error: {str(e)}",
+            )
             raise HTTPException(status_code=500, detail="Lỗi xử lý câu hỏi")
 
         ai_answer = result["answer"]
@@ -293,6 +483,15 @@ async def voice_ask(
         confidence = result.get("confidence", 0.0)
         is_cached = False
         timings = result.get("timings", {})
+
+        stream_progress(
+            session_id=session_id,
+            query_id=query_id,
+            step="complete",
+            status="done",
+            message=f"Query processed successfully in {response_time:.2f}s.",
+            elapsed=round(response_time, 3),
+        )
 
         store_in_cache(
             query=query,
@@ -307,6 +506,7 @@ async def voice_ask(
             response_time=response_time,
             build_time=build_time,
             cached=False,
+            question_id=query_id,
         )
 
     # ── Step 3: Generate TTS audio ──

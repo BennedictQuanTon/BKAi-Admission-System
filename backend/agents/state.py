@@ -25,6 +25,7 @@ class AgentState(TypedDict, total=False):
     original_query: str                  # Raw user question
     chat_history: list[dict[str, str]]   # Previous conversation turns
     session_id: str                      # User session identifier
+    query_id: str                        # Unique query run identifier
 
     # ── Query Processing ──
     rewritten_queries: list[str]         # Queries after rewriting

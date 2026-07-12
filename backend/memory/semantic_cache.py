@@ -269,12 +269,15 @@ def record_question(
     cached: bool = False,
     feedback: str = "unrated",
     trace: dict | None = None,
+    question_id: str | None = None,
 ) -> None:
     """Record a question event for dashboard stats."""
+    import uuid
     r = get_redis_stats()
 
     try:
         entry = {
+            "id": question_id or str(uuid.uuid4()),
             "query": query[:200],
             "answer": answer[:200],
             "response_time": response_time,
@@ -316,6 +319,41 @@ def update_question_feedback(query: str, feedback: str) -> None:
             r.incr(f"{STATS_PREFIX}disliked")
     except Exception as e:
         logger.warning("stats_feedback_error", error=str(e))
+
+
+def evaluate_question_by_id(question_id: str, feedback: str) -> bool:
+    """Finds a question by ID, updates its feedback rating, and updates counters."""
+    r = get_redis_stats()
+    try:
+        elements = r.lrange(QUESTIONS_KEY, 0, -1)
+        for idx, elem in enumerate(elements):
+            item = json.loads(elem)
+            if item.get("id") == question_id:
+                old_feedback = item.get("feedback", "unrated")
+                if old_feedback == feedback:
+                    return True
+
+                item["feedback"] = feedback
+                r.lset(QUESTIONS_KEY, idx, json.dumps(item, ensure_ascii=False))
+
+                if old_feedback == "unrated":
+                    r.decr(f"{STATS_PREFIX}unrated")
+                elif old_feedback == "like":
+                    r.decr(f"{STATS_PREFIX}liked")
+                elif old_feedback == "dislike":
+                    r.decr(f"{STATS_PREFIX}disliked")
+
+                if feedback == "like":
+                    r.incr(f"{STATS_PREFIX}liked")
+                elif feedback == "dislike":
+                    r.incr(f"{STATS_PREFIX}disliked")
+
+                record_stats_snapshot()
+                return True
+        return False
+    except Exception as e:
+        logger.warning("evaluate_question_by_id_error", error=str(e))
+        return False
 
 
 def record_stats_snapshot() -> None:

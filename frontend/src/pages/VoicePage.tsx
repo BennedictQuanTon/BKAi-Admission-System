@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { API_BASE } from "../lib/api";
+import { API_BASE, getSessionId } from "../lib/api";
 
 type VoiceMessage = {
   id: string;
@@ -18,7 +18,7 @@ export default function VoicePage() {
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
   const streamRef = useRef<MediaStream | null>(null);
-  const sessionId = useRef(`voice_${Date.now()}`);
+  const sessionId = useRef(getSessionId());
 
   const stopStream = () => {
     streamRef.current?.getTracks().forEach((t) => t.stop());
