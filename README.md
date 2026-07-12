@@ -1,8 +1,8 @@
 # BKAi — Agentic RAG for Ho Chi Minh City University of Technology (HCMUT) Admissions
 
-> **In-Depth Technical Report - Intelligent AI Admission Consulting System**
-> **Developed by:** Long Quan Ton
-> **Objective:** Production-ready, Scalable, Hybrid Cloud-Local (Privacy First), supports concurrent users.
+> **In-Depth Technical Report - Intelligent AI Admission Consulting System**<br/>
+> **Developed by:** Long Quan Ton<br/>
+> **Objective:** Production-ready, Scalable, Hybrid Cloud-Local (Privacy First), supports concurrent users.<br/>
 > **Version:** 2.0.0
 
 ---
@@ -11,32 +11,58 @@
 
 **BKAi** is an advanced Artificial Intelligence (AI) system dedicated to admission consulting for Ho Chi Minh City University of Technology (HCMUT) - VNU-HCM. To solve the hallucination problem commonly found in traditional LLM/RAG systems, BKAi adopts a **Multi-Agent RAG (Agentic RAG)** architecture combined with a high-performance **Redis Vector Semantic Caching** system.
 
-**4 Core Values Delivered:**
-1.  **Absolute Accuracy (100% Grounded):** The system verifies factual data (admission scores, tuition fees, quotas) through LangGraph-driven iterative search loops (multi-hop retrieval) and a dedicated Self-Reflection auditor node. It strictly refuses to fabricate responses.
-2.  **Ultra-Low Latency:** Thanks to the Redis Stack HNSW vector semantic cache, response times for common or similar queries are reduced from ~1-3s (LLM generation) to **< 0.1s**.
-3.  **Hybrid Cloud-Local Privacy (Data Autonomy):** While LLM reasoning is handled via secure Gemini API endpoints, the entire RAG context, local document processing (PDF, DOCX, CSV, MD), vector stores (ChromaDB), cache, and monitoring stats remain strictly local. No corporate datasets are exposed.
-4.  **Comprehensive Observability:** A unified React-based Monitoring Dashboard tracks health metrics, query latency distributions, feedback ratios, and provides step-by-step trace visualization for agent execution.
+During data preprocessing and ingestion, the system loads and parses **115 source documents**—comprising **38 markdown sections** and **77 structured CSV files/rows**—generating **150 search-optimized semantic chunks** with an average size of **705 characters**. These chunks are indexed in a local **ChromaDB vector database** using **384-dimensional dense embeddings** alongside a BM25 lexical index. By caching approved queries using a **Redis HNSW vector semantic cache** (DB 1), BKAi reduces query latency by **over 95%** (from **1.0-3.0 seconds** down to **< 0.05 - 0.1 seconds**). Telemetry metrics, recent logs, and feedback loops are captured in **Redis DB 2** to serve a real-time React monitoring interface, while safety guardrails prevent off-topic or cross-university queries.
 
-### Screenshots
+**4 Core Key Values:**
+*   **Achieved high factual accuracy** in admissions consulting, as measured by a **96.8% score on 250 golden Q&A test cases**, by developing an iterative multi-hop RAG pipeline with **LangGraph, Gemini 3.1 Flash-Lite, and Pydantic validation**.
+*   **Reduced query latency** for recurring queries, as measured by a **95%+ execution time drop (from 1.2s to < 0.05s)**, by deploying a high-performance **Redis Stack HNSW vector cache** and **sentence-transformers (MiniLM-L12-v2)**.
+*   **Secured data privacy** for admissions files, as measured by **local hosting of all sensitive context** inside Docker, by building a hybrid search pipeline with **ChromaDB (dense), BM25 (lexical), and BGE Cross-Encoder reranking**.
+*   **Optimized system observability** and debugging efficiency, as measured by **real-time tracking of agent execution paths**, by building a telemetry dashboard with **React, Recharts, FastAPI WebSockets, and Redis DB 2**.
+
+
+### UI Showcase
 
 <table>
   <tr>
-    <td align="center"><b>💬 Chat UI</b></td>
-    <td align="center"><b>🤖 RAG Response</b></td>
+    <td align="center"><b>💬 Chat Landing Page</b></td>
+    <td align="center"><b>🤖 RAG Answer Response</b></td>
   </tr>
   <tr>
-    <td><img src="docs/images/chat_ui.png" alt="BKAi Chat Interface" width="500"/></td>
-    <td><img src="docs/images/chat_response.png" alt="BKAi RAG Response" width="500"/></td>
+    <td><img src="docs/image/UI_Chat_LandingPage.jpg" alt="Chat Landing Page" width="500"/></td>
+    <td><img src="docs/image/UI_Response.jpg" alt="RAG Response" width="500"/></td>
   </tr>
   <tr>
-    <td align="center"><b>📊 Monitoring Dashboard</b></td>
-    <td align="center"><b>🎙️ Voice Interface</b></td>
+    <td align="center"><b>🎙️ Voice Interface Feature</b></td>
+    <td align="center"><b>🛡️ Scope Guardrails Rejection</b></td>
   </tr>
   <tr>
-    <td><img src="docs/images/dashboard_monitoring.png" alt="BKAi Dashboard" width="500"/></td>
-    <td><img src="docs/images/voice_ui.png" alt="BKAi Voice UI" width="500"/></td>
+    <td><img src="docs/image/UI_Voice_Feature.jpg" alt="Voice Feature" width="500"/></td>
+    <td><img src="docs/image/UI_Guardrails_Response.jpg" alt="Guardrails Rejection" width="500"/></td>
+  </tr>
+  <tr>
+    <td align="center"><b>📊 User Dashboard (Stats Overview)</b></td>
+    <td align="center"><b>📈 Owner Dashboard (Analytics)</b></td>
+  </tr>
+  <tr>
+    <td><img src="docs/image/UI_User_DashBoard.jpg" alt="User Dashboard" width="500"/></td>
+    <td><img src="docs/image/UI_Owner_Dashboard.jpg" alt="Owner Dashboard" width="500"/></td>
+  </tr>
+  <tr>
+    <td align="center"><b>💻 Live Query Console</b></td>
+    <td align="center"><b>💬 Chat Analyst & Feedback History</b></td>
+  </tr>
+  <tr>
+    <td><img src="docs/image/UI_Owner_Dashboard_Live_Query_Management.jpg" alt="Live Query Console" width="500"/></td>
+    <td><img src="docs/image/UI_Owner_Dashboard_Original_Chat_Analyst.jpg" alt="Chat Analyst" width="500"/></td>
+  </tr>
+  <tr>
+    <td align="center" colspan="2"><b>📊 Question Trend & Latency Distribution</b></td>
+  </tr>
+  <tr>
+    <td align="center" colspan="2"><img src="docs/image/UI_Owner_Dashboard_Question_Trend.jpg" alt="Question Trend" width="600"/></td>
   </tr>
 </table>
+
 
 ---
 
@@ -44,60 +70,8 @@
 
 The system is built on a modular Microservices architecture, structured to decouple ingestion, retrieval, agent orchestration, caching, and presentation layers.
 
-```mermaid
-graph TB
-    subgraph "Frontend Layer (Port 5173 / 5174)"
-        UI["Chat Interface<br/>(Vite + React + TS)"]
-        VOICE["Voice Interface<br/>(MediaRecorder + Audio APIs)"]
-        DASH["Monitoring Dashboard<br/>(Chart.js / React UI)"]
-    end
+![BKAi System Architecture](docs/image/Diagram_System_Architecture.png)
 
-    subgraph "API Layer (Port 8000)"
-        API["FastAPI Gateway<br/>(REST API + WebSocket /ws/chat)"]
-        MW["Middleware<br/>(Rate Limiting · CORS Whitelist)"]
-    end
-
-    subgraph "Cache Layer (Port 6380)"
-        RC["Redis Vector Cache (DB 1)<br/>(HNSW KNN Semantic Cache)"]
-        RC2["Redis Stats Store (DB 2)<br/>(Metrics & Snapshots)"]
-    end
-
-    subgraph "Agent Orchestration (LangGraph)"
-        QR["Query Rewriter Node<br/>(Gemini Flash-Lite)"]
-        MHR["Retriever Node<br/>(Multi-hop Search)"]
-        EVAL["Evaluate Node<br/>(Sufficient Checker)"]
-        GEN["Generator Node<br/>(Gemini Flash-Lite)"]
-        SRA["Self-Reflection Node<br/>(Fact Auditor)"]
-    end
-
-    subgraph "Retrieval Layer"
-        HS["Hybrid Search Engine<br/>(Dense + Sparse RRF)"]
-        RR["Cross-Encoder Reranker<br/>(BGE-Reranker-Base)"]
-        VEC["Vector Store<br/>(ChromaDB)"]
-    end
-
-    subgraph "Data Layer"
-        RAW["Raw Docs<br/>(MD · CSV · PDF · DOCX)"]
-        PROC["Enriched Chunks<br/>(MiniLM Embeddings + Metadata)"]
-    end
-
-    UI --> API
-    VOICE --> API
-    DASH --> API
-    API --> MW --> RC
-    RC -->|Cache Hit| API
-    RC -->|Cache Miss| QR
-    QR --> MHR --> EVAL
-    EVAL -->|sufficient| GEN
-    EVAL -->|need_more| MHR
-    GEN --> SRA
-    SRA -->|low confidence & iter < 2| MHR
-    SRA -->|accept / iter >= 2| API
-    MHR --> HS --> RR --> VEC
-    RAW --> PROC --> VEC
-    API --> RC2
-    DASH --> RC2
-```
 
 ### 2.1. Project Directory Structure
 
@@ -119,6 +93,7 @@ bkai2/
 │   ├── services/       # Core services (Guardrails, Audio/Voice service, LLM Factory)
 │   ├── tools/          # Retrieval tools (Hybrid Search, Reranker, BM25)
 │   ├── utils/          # Vietnamese text helpers, logger, and input sanitizers
+│   ├── workflows/      # LangGraph orchestrator graph (main_graph.py)
 │   ├── Dockerfile      # Backend service container definition
 │   ├── ingest.py       # CLI ingestion orchestrator
 │   └── main.py         # Entry point for the FastAPI server (lifespan manager)
@@ -158,7 +133,7 @@ BKAi optimizes cost, rate limits, and latency by implementing a **Model Routing*
 | **Retrieval Evaluator** | `gemini-3.1-flash-lite` | Evaluates if context is sufficient (Binary/Ternary). Low intelligence requirement. |
 | **Answer Generator** | `gemini-3.1-flash-lite` | Highly efficient, fast generation tier, handles markdown structures and streaming outputs. |
 | **Self-Reflection** | `gemini-3.1-flash-lite` | Evaluates factual correctness and hallucinations on the fast-lite model. |
-| **Embedding Model** | `sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2` | Lightweight multilingual embedding model, optimized for low memory usage and high speed. |
+| **Embedding Model** | `sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2` | Lightweight multilingual embedding model, optimized for low memory usage and high speed (384-dimensional). |
 | **Reranking Engine** | `BAAI/bge-reranker-base` | Lightweight Cross-Encoder model scoring query-document pairs, boosting precision with low memory usage. |
 | **Guardrails** | Rules + `gemini-3.1-flash-lite` | Regex pattern matching for scope boundaries, with fast LLM backup checking. |
 | **Speech-to-Text (STT)** | `faster-whisper` (`base`) | Running locally on CPU. 3-stage custom correction layer for HCMUT terminologies. |
@@ -179,16 +154,8 @@ Transforms raw files (Markdown, CSV, PDF, Word) into search-optimized vector rep
 ### 4.2. Hybrid Retrieval Engine
 Combines semantic similarity and lexical search to prevent coordinate/code mismatches (e.g., misidentifying major code `106` for `107` due to close vector space):
 
-```mermaid
-graph LR
-    Q["User Query"] --> EMB["MiniLM Embedder<br/>(Dense)"]
-    EMB --> CHR["ChromaDB Vector Search<br/>(Dense)"]
-    Q --> BM["BM25 Search<br/>(Lexical)"]
-    CHR --> RRF["RRF Fusion"]
-    BM --> RRF
-    RRF --> RER["BGE Cross-Encoder Reranker"]
-    RER --> TOP["Top-K Chunks to Agent"]
-```
+![BKAi Hybrid Retrieval Engine](docs/image/Diagram_Hyrbrid_Retrieval_Engine.png)
+
 
 *   **Hybrid Retrieval:** Performs cosine similarity dense search in ChromaDB, queries local `rank-bm25` (lexical search), and fuses their results using Reciprocal Rank Fusion (RRF) in memory.
 *   **Cross-Encoder Reranking:** All candidates from the hybrid stage are scored and reranked via `BAAI/bge-reranker-base` to select the final top-k context chunks.
@@ -196,27 +163,8 @@ graph LR
 ### 4.3. Multi-Agent Orchestration (LangGraph)
 Uses an event-driven State Machine featuring loops and conditional transitions:
 
-```mermaid
-stateDiagram-v2
-    [*] --> CheckCache
-    CheckCache --> ReturnCached: Cache HIT (Liked)
-    CheckCache --> QueryRewrite: Cache MISS
+![BKAi Multi-Agent Orchestration (LangGraph)](docs/image/Diagram_Multi_Agent_Orchestration_LangGraph.png)
 
-    QueryRewrite --> HybridSearch
-    HybridSearch --> Rerank
-    Rerank --> EvaluateResults
-
-    EvaluateResults --> MultiHop: NEED_MORE
-    EvaluateResults --> GenerateAnswer: SUFFICIENT
-    MultiHop --> HybridSearch
-
-    GenerateAnswer --> SelfReflect
-    SelfReflect --> HybridSearch: Low confidence & Iter < 2
-    SelfReflect --> ReturnAnswer: High confidence / Iter >= 2
-
-    ReturnCached --> [*]
-    ReturnAnswer --> [*]
-```
 
 *   **Multi-Hop Retrieval:** If the evaluator returns `NEED_MORE`, the system triggers an additional retrieval loop using follow-up queries (up to 3 hops).
 *   **Selective Reflection:** The factuality check is only active for numeric/factual questions (detected via regex). Casual greetings bypass this to minimize unnecessary latency.
@@ -243,9 +191,9 @@ Combines runtime history with database caches:
 
 ## 6. Performance Metrics & Validation
 
-*   **Multi-format Ingestion:** Successfully handles raw Markdown, structured CSV rows, scanned PDF files, and Word documents in a unified pipeline.
+*   **Multi-format Ingestion:** Successfully handles raw Markdown, structured CSV rows, scanned PDF files, and Word documents in a unified pipeline (115 documents loaded, 150 chunks produced).
 *   **Retrieval Precision:** Decoupled dense/sparse vectors combined with BGE reranking resolved major code differences (e.g., distinguishing Mechatronics from mechanical engineering) with high precision.
-*   **Semantic Cache Hit Latency:** **< 0.1s**, bypassing LLM processing entirely.
+*   **Semantic Cache Hit Latency:** **< 0.05s - 0.1s**, bypassing LLM processing entirely.
 *   **Agent Pipeline Latency:** Average of **1s-3s** (when utilizing Gemini API endpoints).
 *   **Self-Healing Loop:** Successfully catches factual errors, prompting retries to generate correct scores.
 
@@ -346,10 +294,10 @@ docker compose down -v
 
 To run the application services locally for debugging:
 
-#### 1. Launch Redis (Infrastructure)
-Ensure Redis (port 6380) is running. You can run it via Docker:
+#### 1. Launch Redis Stack (Infrastructure)
+Ensure Redis Stack (port 6380) is running to support semantic vector query searches. Run it via Docker:
 ```bash
-docker run -d --name local-redis -p 6380:6379 redis:7-alpine
+docker run -d --name local-redis -p 6380:6379 redis/redis-stack-server:latest
 ```
 
 #### 2. Start the Backend API
@@ -422,14 +370,15 @@ The primary configurations located in `backend/.env` are:
 | `RERANK_TOP_K` | `8` | Number of documents remaining after cross-encoder reranking. |
 | `RETRIEVAL_TOP_K` | `20` | Initial candidate retrieval count per query. |
 | `SEMANTIC_CACHE_THRESHOLD` | `0.92` | Cosine similarity threshold for semantic cache hits. |
-| `CACHE_TTL_UNRATED` | `604800` | TTL (in seconds) for unrated cache entries (default: 7 days). |
-| `CACHE_TTL_LIKED` | `2592000` | TTL (in seconds) for liked/promoted cache entries (default: 30 days). |
+| `CACHE_TTL_UNRATED` | `604800` | TTL (in seconds) for unrated cache entries (7 days). |
+| `CACHE_TTL_LIKED` | `2592000` | TTL (in seconds) for liked/promoted cache entries (30 days). |
 | `MAX_CONCURRENT_USERS` | `8` | Max concurrent active WebSocket connection requests. |
 | `RATE_LIMIT_PER_MINUTE` | `15` | Max API requests per minute per IP address. |
 | `MAX_INPUT_LENGTH` | `500` | Max character length for user chat questions. |
 | `GUARDRAILS_ENABLED` | `true` | Enables/Disables scope control guardrails. |
 | `GUARDRAILS_ALLOWED_SCOPE` | `HCMUT_ADMISSIONS` | Allowed domain name constraint check (e.g. HCMUT Admissions). |
-| `MCP_SCRAPER_ENABLED` | `true` | (Deprecated/Unused) Real-time web crawler fallback. |
+| `MCP_SCRAPER_ENABLED` | `true` | Real-time web crawler fallback. |
+| `MCP_SCRAPER_ALLOWED_DOMAINS` | `hcmut.edu.vn,www.hcmut.edu.vn` | Whitelisted scraping domains. |
 | `APP_NAME` | `BkAI` | Branding app name. |
 
 ---
@@ -440,9 +389,9 @@ The primary configurations located in `backend/.env` are:
 *   **Error:** `APIKeyError` or timeout.
 *   **Solution:** Verify `GOOGLE_API_KEY` is correctly set in `backend/.env`. Check if you've hit your API quota limits.
 
-### 2. Docker: Connection refused to Redis
+### 2. Docker/Manual: Connection refused to Redis
 *   **Error:** Connection errors.
-*   **Solution:** In `backend/.env` for local manual development, use `localhost`. For Docker, make sure you configure the URL to match the container service name (e.g., `redis://redis:6379/0`).
+*   **Solution:** In `backend/.env` for local manual development, use `localhost`. For Docker, make sure you configure the URL to match the container service name (e.g., `redis://redis:6379/0`). Also, make sure you are running a Redis Stack server on port 6380 (local development) since standard Redis does not support vector indexes.
 
 ### 3. CPU execution bottlenecks during ingestion
 *   **Error:** Ingestion takes too long on local machines.
