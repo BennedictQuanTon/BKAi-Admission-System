@@ -248,7 +248,13 @@ def update_feedback(query: str, feedback: str) -> bool:
 
         r.setex(f"{cache_key}:meta", ttl, json.dumps(entry, ensure_ascii=False))
         if r.exists(cache_key):
-            r.hset(cache_key, mapping={"status": entry["status"]})
+            try:
+                r.hset(cache_key, mapping={"status": entry["status"]})
+            except redis.exceptions.ResponseError as re:
+                if "WRONGTYPE" in str(re):
+                    r.setex(cache_key, ttl, json.dumps(entry, ensure_ascii=False))
+                else:
+                    raise re
             r.expire(cache_key, ttl)
         logger.info("feedback_updated", feedback=feedback, key=cache_key[-12:])
         return True
@@ -278,8 +284,8 @@ def record_question(
     try:
         entry = {
             "id": question_id or str(uuid.uuid4()),
-            "query": query[:200],
-            "answer": answer[:200],
+            "query": query,
+            "answer": answer,
             "response_time": response_time,
             "build_time": build_time,
             "cached": cached,
@@ -349,6 +355,12 @@ def evaluate_question_by_id(question_id: str, feedback: str) -> bool:
                     r.incr(f"{STATS_PREFIX}disliked")
 
                 record_stats_snapshot()
+
+                # Sync feedback to semantic cache
+                query_str = item.get("query")
+                if query_str:
+                    update_feedback(query_str, feedback)
+
                 return True
         return False
     except Exception as e:
