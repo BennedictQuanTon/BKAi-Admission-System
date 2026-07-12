@@ -89,4 +89,13 @@ class AdminEvaluateRequest(BaseModel):
     """Admin feedback / correctness evaluation request."""
     question_id: str
     feedback: str = Field(..., pattern="^(like|dislike)$")
+    query: str | None = None
+    timestamp: float | None = None
+
+
+class AdminDeleteRequest(BaseModel):
+    """Admin request to delete a question."""
+    question_id: str
+    query: str | None = None
+    timestamp: float | None = None
 

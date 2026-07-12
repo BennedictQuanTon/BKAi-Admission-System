@@ -7,7 +7,7 @@
   <title>BKAi — Monitoring Dashboard</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="/style.css" />
 </head>
 <body>
@@ -53,146 +53,156 @@
           </svg>
         </button>
         <div class="last-updated" id="lastUpdated">--</div>
-      </div>
     </header>
 
     <!-- Dashboard Content -->
     <main class="dashboard-main" id="dashboardMain">
 
-      <!-- KPI Cards Row -->
-      <section class="kpi-row" id="kpiRow">
-        <div class="kpi-card" id="kpiTotal">
-          <div class="kpi-icon kpi-icon-total">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
-            </svg>
+      <!-- Metrics Overview Row -->
+      <section class="metrics-overview-row">
+        <!-- Card 1: Accuracy & Volume -->
+        <div class="overview-card" id="cardAccuracyVolume">
+          <div class="card-header">
+            <h2 class="card-title">Accuracy & Volume</h2>
+            <span class="card-badge">Pie Chart + KPI Counters</span>
           </div>
-          <div class="kpi-body">
-            <div class="kpi-value" id="totalQuestions">0</div>
-            <div class="kpi-label">Total Questions</div>
-          </div>
-        </div>
-
-        <div class="kpi-card" id="kpiLiked">
-          <div class="kpi-icon kpi-icon-liked">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="M14 9V5a3 3 0 0 0-3-3l-4 9v11h11.28a2 2 0 0 0 2-1.7l1.38-9a2 2 0 0 0-2-2.3H14z"/>
-              <path d="M7 22H4a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2h3"/>
-            </svg>
-          </div>
-          <div class="kpi-body">
-            <div class="kpi-value" id="likedCount">0</div>
-            <div class="kpi-label">Correct</div>
-          </div>
-          <div class="kpi-badge kpi-badge-success" id="likedRate">0%</div>
-        </div>
-
-        <div class="kpi-card" id="kpiDisliked">
-          <div class="kpi-icon kpi-icon-disliked">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="M10 15V19a3 3 0 0 0 3 3l4-9V2H5.72a2 2 0 0 0-2 1.7l-1.38 9a2 2 0 0 0 2 2.3H10z"/>
-              <path d="M17 2h3a2 2 0 0 1 2 2v7a2 2 0 0 1-2 2h-3"/>
-            </svg>
-          </div>
-          <div class="kpi-body">
-            <div class="kpi-value" id="dislikedCount">0</div>
-            <div class="kpi-label">Incorrect</div>
-          </div>
-          <div class="kpi-badge kpi-badge-danger" id="dislikedRate">0%</div>
-        </div>
-
-        <div class="kpi-card" id="kpiUnrated">
-          <div class="kpi-icon kpi-icon-unrated">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <circle cx="12" cy="12" r="10"/>
-              <line x1="12" y1="8" x2="12" y2="12"/>
-              <line x1="12" y1="16" x2="12.01" y2="16"/>
-            </svg>
-          </div>
-          <div class="kpi-body">
-            <div class="kpi-value" id="unratedCount">0</div>
-            <div class="kpi-label">Unrated</div>
-          </div>
-        </div>
-
-        <div class="kpi-card" id="kpiAvgTime">
-          <div class="kpi-icon kpi-icon-time">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <circle cx="12" cy="12" r="10"/>
-              <polyline points="12 6 12 12 16 14"/>
-            </svg>
-          </div>
-          <div class="kpi-body">
-            <div class="kpi-value" id="avgResponseTime">0s</div>
-            <div class="kpi-label">Avg Response Time</div>
-          </div>
-        </div>
-
-        <div class="kpi-card" id="kpiCacheHit">
-          <div class="kpi-icon kpi-icon-cache">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>
-            </svg>
-          </div>
-          <div class="kpi-body">
-            <div class="kpi-value" id="cacheHitRate">0%</div>
-            <div class="kpi-label">Cache Hit Rate</div>
+          <div class="overview-card-body">
+            <div class="overview-chart-pane">
+              <canvas id="satisfactionChart"></canvas>
+            </div>
+            <div class="overview-kpi-grid">
+              <!-- KPI: Total Questions -->
+              <div class="overview-kpi-item" id="kpiTotal">
+                <div class="overview-kpi-icon kpi-icon-total">
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+                  </svg>
+                </div>
+                <div class="overview-kpi-info">
+                  <div class="overview-kpi-value" id="totalQuestions">0</div>
+                  <div class="overview-kpi-label">Total Questions</div>
+                </div>
+              </div>
+              <!-- KPI: Correct -->
+              <div class="overview-kpi-item" id="kpiLiked">
+                <div class="overview-kpi-icon kpi-icon-liked">
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M14 9V5a3 3 0 0 0-3-3l-4 9v11h11.28a2 2 0 0 0 2-1.7l1.38-9a2 2 0 0 0-2-2.3H14z"/>
+                    <path d="M7 22H4a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2h3"/>
+                  </svg>
+                </div>
+                <div class="overview-kpi-info">
+                  <div class="overview-kpi-value" id="likedCount">0</div>
+                  <div class="overview-kpi-label">Correct</div>
+                </div>
+                <span class="overview-kpi-badge kpi-badge-success" id="likedRate">0%</span>
+              </div>
+              <!-- KPI: Incorrect -->
+              <div class="overview-kpi-item" id="kpiDisliked">
+                <div class="overview-kpi-icon kpi-icon-disliked">
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M10 15V19a3 3 0 0 0 3 3l4-9V2H5.72a2 2 0 0 0-2 1.7l-1.38 9a2 2 0 0 0 2 2.3H10z"/>
+                    <path d="M17 2h3a2 2 0 0 1 2 2v7a2 2 0 0 1-2 2h-3"/>
+                  </svg>
+                </div>
+                <div class="overview-kpi-info">
+                  <div class="overview-kpi-value" id="dislikedCount">0</div>
+                  <div class="overview-kpi-label">Incorrect</div>
+                </div>
+                <span class="overview-kpi-badge kpi-badge-danger" id="dislikedRate">0%</span>
+              </div>
+              <!-- KPI: Unrated -->
+              <div class="overview-kpi-item" id="kpiUnrated">
+                <div class="overview-kpi-icon kpi-icon-unrated">
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <circle cx="12" cy="12" r="10"/>
+                    <line x1="12" y1="8" x2="12" y2="12"/>
+                    <line x1="12" y1="16" x2="12.01" y2="16"/>
+                  </svg>
+                </div>
+                <div class="overview-kpi-info">
+                  <div class="overview-kpi-value" id="unratedCount">0</div>
+                  <div class="overview-kpi-label">Unrated</div>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
 
-        <div class="kpi-card" id="kpiErrors">
-          <div class="kpi-icon kpi-icon-errors">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
-              <line x1="12" y1="9" x2="12" y2="13"/>
-              <line x1="12" y1="17" x2="12.01" y2="17"/>
-            </svg>
+        <!-- Card 2: Performance & Load -->
+        <div class="overview-card" id="cardPerformanceLoad">
+          <div class="card-header">
+            <h2 class="card-title">Performance & Load</h2>
+            <span class="card-badge">Bar Chart + KPI Metrics</span>
           </div>
-          <div class="kpi-body">
-            <div class="kpi-value" id="errorCount">0</div>
-            <div class="kpi-label">System Errors</div>
-          </div>
-          <div class="kpi-badge kpi-badge-danger" id="lastErrorTime">--</div>
-        </div>
-
-        <div class="kpi-card" id="kpiSessions">
-          <div class="kpi-icon kpi-icon-sessions">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
-              <circle cx="9" cy="7" r="4"/>
-              <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
-              <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
-            </svg>
-          </div>
-          <div class="kpi-body">
-            <div class="kpi-value" id="activeSessions">0</div>
-            <div class="kpi-label">Active Sessions</div>
+          <div class="overview-card-body">
+            <div class="overview-chart-pane">
+              <canvas id="timingsChart"></canvas>
+            </div>
+            <div class="overview-kpi-grid">
+              <!-- KPI: Avg Response Time -->
+              <div class="overview-kpi-item" id="kpiAvgTime">
+                <div class="overview-kpi-icon kpi-icon-time">
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <circle cx="12" cy="12" r="10"/>
+                    <polyline points="12 6 12 12 16 14"/>
+                  </svg>
+                </div>
+                <div class="overview-kpi-info">
+                  <div class="overview-kpi-value" id="avgResponseTime">0s</div>
+                  <div class="overview-kpi-label">Avg Response</div>
+                </div>
+              </div>
+              <!-- KPI: Cache Hit Rate -->
+              <div class="overview-kpi-item" id="kpiCacheHit">
+                <div class="overview-kpi-icon kpi-icon-cache">
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>
+                  </svg>
+                </div>
+                <div class="overview-kpi-info">
+                  <div class="overview-kpi-value" id="cacheHitRate">0%</div>
+                  <div class="overview-kpi-label">Cache Hit Rate</div>
+                </div>
+              </div>
+              <!-- KPI: Active Sessions -->
+              <div class="overview-kpi-item" id="kpiSessions">
+                <div class="overview-kpi-icon kpi-icon-sessions">
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+                    <circle cx="9" cy="7" r="4"/>
+                    <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
+                    <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+                  </svg>
+                </div>
+                <div class="overview-kpi-info">
+                  <div class="overview-kpi-value" id="activeSessions">0</div>
+                  <div class="overview-kpi-label">Active Sessions</div>
+                </div>
+              </div>
+              <!-- KPI: System Errors -->
+              <div class="overview-kpi-item" id="kpiErrors">
+                <div class="overview-kpi-icon kpi-icon-errors">
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
+                    <line x1="12" y1="9" x2="12" y2="13"/>
+                    <line x1="12" y1="17" x2="12.01" y2="17"/>
+                  </svg>
+                </div>
+                <div class="overview-kpi-info">
+                  <div class="overview-kpi-value" id="errorCount">0</div>
+                  <div class="overview-kpi-label">System Errors</div>
+                </div>
+                <span class="overview-kpi-badge kpi-badge-danger" id="lastErrorTime">--</span>
+              </div>
+            </div>
           </div>
         </div>
       </section>
 
-      {/* Charts Row */}
-      <section class="charts-row">
-        <div class="chart-card" id="chartSatisfaction">
-          <div class="card-header">
-            <h2 class="card-title">Accuracy</h2>
-            <span class="card-badge">Pie Chart</span>
-          </div>
-          <div class="chart-container">
-            <canvas id="satisfactionChart"></canvas>
-          </div>
-        </div>
-
-        <div class="chart-card" id="chartTimings">
-          <div class="card-header">
-            <h2 class="card-title">Processing Time</h2>
-            <span class="card-badge">Bar Chart</span>
-          </div>
-          <div class="chart-container">
-            <canvas id="timingsChart"></canvas>
-          </div>
-        </div>
-
+      <!-- Trend & Console Row -->
+      <section class="trend-console-row">
+        <!-- Question Trend -->
         <div class="chart-card" id="chartResponseTrend">
           <div class="card-header">
             <h2 class="card-title">Question Trend</h2>
@@ -208,10 +218,8 @@
             <canvas id="trendChart"></canvas>
           </div>
         </div>
-      </section>
 
-      {/* Live System Logs Console Section */}
-      <section class="live-logs-section">
+        <!-- Live System Logs Console -->
         <div class="live-logs-card">
           <div class="card-header">
             <div class="card-title-group">
@@ -229,99 +237,107 @@
         </div>
       </section>
 
-      {/* Bottom Row: Recent Questions + Agent Pipeline */}
-      <section class="bottom-row">
-        <!-- Recent Questions Feed -->
-        <div class="feed-card" id="feedCard">
+      <!-- Live Query Inspector Workspace -->
+      <section class="query-workspace-section">
+        <div class="workspace-card">
           <div class="card-header">
-            <h2 class="card-title">Recent Questions</h2>
-            <span class="card-badge" id="feedCount">0 questions</span>
-          </div>
-          <div class="feed-list" id="feedList">
-            <div class="feed-empty">
-              <span class="feed-empty-icon">📭</span>
-              <p>No questions yet</p>
+            <div class="card-title-group">
+              <h2 class="card-title">Live Query Workspace</h2>
+              <div class="live-badge">
+                <span class="live-badge-dot"></span>
+                <span id="feedCount">0 questions</span>
+              </div>
             </div>
+            <span class="card-badge font-mono">Expert Cache Manager</span>
           </div>
-        </div>
-
-        <!-- Agent Pipeline Visualization -->
-        <div class="pipeline-card" id="pipelineCard">
-          <div class="card-header">
-            <h2 class="card-title">Agent Pipeline</h2>
-            <span class="card-badge">LangGraph Flow</span>
-          </div>
-          <div class="pipeline-container" id="pipelineContainer">
-            <div class="pipeline-flow">
-              <div class="pipeline-node pipeline-node-start">
-                <div class="node-icon">📥</div>
-                <div class="node-label">Input Query</div>
-              </div>
-              <div class="pipeline-arrow">
-                <svg width="40" height="20" viewBox="0 0 40 20"><path d="M0 10 L30 10 M25 5 L30 10 L25 15" stroke="currentColor" fill="none" stroke-width="1.5"/></svg>
-              </div>
-              <div class="pipeline-node" id="nodeCache">
-                <div class="node-icon">⚡</div>
-                <div class="node-label">Cache</div>
-                <div class="node-status" id="nodeCacheStatus">—</div>
-              </div>
-              <div class="pipeline-arrow">
-                <svg width="40" height="20" viewBox="0 0 40 20"><path d="M0 10 L30 10 M25 5 L30 10 L25 15" stroke="currentColor" fill="none" stroke-width="1.5"/></svg>
-              </div>
-              <div class="pipeline-node" id="nodeRewrite">
-                <div class="node-icon">✏️</div>
-                <div class="node-label">Query Rewrite</div>
-                <div class="node-status" id="nodeRewriteStatus">—</div>
-              </div>
-              <div class="pipeline-arrow">
-                <svg width="40" height="20" viewBox="0 0 40 20"><path d="M0 10 L30 10 M25 5 L30 10 L25 15" stroke="currentColor" fill="none" stroke-width="1.5"/></svg>
-              </div>
-              <div class="pipeline-node" id="nodeRetrieval">
-                <div class="node-icon">🔍</div>
-                <div class="node-label">Retrieval</div>
-                <div class="node-status" id="nodeRetrievalStatus">—</div>
-              </div>
-              <div class="pipeline-arrow">
-                <svg width="40" height="20" viewBox="0 0 40 20"><path d="M0 10 L30 10 M25 5 L30 10 L25 15" stroke="currentColor" fill="none" stroke-width="1.5"/></svg>
-              </div>
-              <div class="pipeline-node" id="nodeGenerate">
-                <div class="node-icon">🤖</div>
-                <div class="node-label">Generate</div>
-                <div class="node-status" id="nodeGenerateStatus">—</div>
-              </div>
-              <div class="pipeline-arrow">
-                <svg width="40" height="20" viewBox="0 0 40 20"><path d="M0 10 L30 10 M25 5 L30 10 L25 15" stroke="currentColor" fill="none" stroke-width="1.5"/></svg>
-              </div>
-              <div class="pipeline-node" id="nodeReflect">
-                <div class="node-icon">🧠</div>
-                <div class="node-label">Self-Reflect</div>
-                <div class="node-status" id="nodeReflectStatus">—</div>
-              </div>
-              <div class="pipeline-arrow">
-                <svg width="40" height="20" viewBox="0 0 40 20"><path d="M0 10 L30 10 M25 5 L30 10 L25 15" stroke="currentColor" fill="none" stroke-width="1.5"/></svg>
-              </div>
-              <div class="pipeline-node pipeline-node-end">
-                <div class="node-icon">✅</div>
-                <div class="node-label">Output Answer</div>
+          
+          <div class="workspace-body">
+            <!-- Left panel: Recent Questions Feed -->
+            <div class="workspace-sidebar">
+              <div class="feed-list" id="feedList">
+                <div class="feed-empty">
+                  <span class="feed-empty-icon">📭</span>
+                  <p>No questions yet</p>
+                </div>
               </div>
             </div>
 
-            <!-- Pipeline Legend -->
-            <div class="pipeline-legend">
-              <div class="legend-item">
-                <span class="legend-dot legend-dot-active"></span> Running
+            <!-- Right panel: Agent Pipeline Trace Inspector -->
+            <div class="workspace-inspector">
+              <!-- LangGraph Pipeline Visualizer -->
+              <div class="pipeline-visualizer" id="pipelineVisualizer">
+                <div class="pipeline-flow">
+                  <div class="pipeline-node pipeline-node-start">
+                    <div class="node-icon">📥</div>
+                    <div class="node-label">Input Query</div>
+                  </div>
+                  <div class="pipeline-arrow">
+                    <svg width="30" height="20" viewBox="0 0 40 20"><path d="M0 10 L30 10 M25 5 L30 10 L25 15" stroke="currentColor" fill="none" stroke-width="1.5"/></svg>
+                  </div>
+                  <div class="pipeline-node" id="nodeCache">
+                    <div class="node-icon">⚡</div>
+                    <div class="node-label">Cache</div>
+                    <div class="node-status" id="nodeCacheStatus">—</div>
+                  </div>
+                  <div class="pipeline-arrow">
+                    <svg width="30" height="20" viewBox="0 0 40 20"><path d="M0 10 L30 10 M25 5 L30 10 L25 15" stroke="currentColor" fill="none" stroke-width="1.5"/></svg>
+                  </div>
+                  <div class="pipeline-node" id="nodeRewrite">
+                    <div class="node-icon">✏️</div>
+                    <div class="node-label">Query Rewrite</div>
+                    <div class="node-status" id="nodeRewriteStatus">—</div>
+                  </div>
+                  <div class="pipeline-arrow">
+                    <svg width="30" height="20" viewBox="0 0 40 20"><path d="M0 10 L30 10 M25 5 L30 10 L25 15" stroke="currentColor" fill="none" stroke-width="1.5"/></svg>
+                  </div>
+                  <div class="pipeline-node" id="nodeRetrieval">
+                    <div class="node-icon">🔍</div>
+                    <div class="node-label">Retrieval</div>
+                    <div class="node-status" id="nodeRetrievalStatus">—</div>
+                  </div>
+                  <div class="pipeline-arrow">
+                    <svg width="30" height="20" viewBox="0 0 40 20"><path d="M0 10 L30 10 M25 5 L30 10 L25 15" stroke="currentColor" fill="none" stroke-width="1.5"/></svg>
+                  </div>
+                  <div class="pipeline-node" id="nodeGenerate">
+                    <div class="node-icon">🤖</div>
+                    <div class="node-label">Generate</div>
+                    <div class="node-status" id="nodeGenerateStatus">—</div>
+                  </div>
+                  <div class="pipeline-arrow">
+                    <svg width="30" height="20" viewBox="0 0 40 20"><path d="M0 10 L30 10 M25 5 L30 10 L25 15" stroke="currentColor" fill="none" stroke-width="1.5"/></svg>
+                  </div>
+                  <div class="pipeline-node" id="nodeReflect">
+                    <div class="node-icon">🧠</div>
+                    <div class="node-label">Self-Reflect</div>
+                    <div class="node-status" id="nodeReflectStatus">—</div>
+                  </div>
+                  <div class="pipeline-arrow">
+                    <svg width="30" height="20" viewBox="0 0 40 20"><path d="M0 10 L30 10 M25 5 L30 10 L25 15" stroke="currentColor" fill="none" stroke-width="1.5"/></svg>
+                  </div>
+                  <div class="pipeline-node pipeline-node-end">
+                    <div class="node-icon">✅</div>
+                    <div class="node-label">Output Answer</div>
+                  </div>
+                </div>
+                
+                <!-- Pipeline Legend -->
+                <div class="pipeline-legend">
+                  <div class="legend-item">
+                    <span class="legend-dot legend-dot-active"></span> Running
+                  </div>
+                  <div class="legend-item">
+                    <span class="legend-dot legend-dot-done"></span> Completed
+                  </div>
+                  <div class="legend-item">
+                    <span class="legend-dot legend-dot-skip"></span> Skipped
+                  </div>
+                </div>
               </div>
-              <div class="legend-item">
-                <span class="legend-dot legend-dot-done"></span> Completed
-              </div>
-              <div class="legend-item">
-                <span class="legend-dot legend-dot-skip"></span> Skipped
-              </div>
-            </div>
 
-            <!-- Selected question detail -->
-            <div class="pipeline-detail" id="pipelineDetail">
-              <p class="detail-hint">Select a question on the left to view pipeline details</p>
+              <!-- Selected Question Trace Details -->
+              <div class="pipeline-detail" id="pipelineDetail">
+                <p class="detail-hint">Chọn một câu hỏi ở danh sách bên trái để kiểm tra quy trình xử lý của Agent và duyệt lưu Cache.</p>
+              </div>
             </div>
           </div>
         </div>

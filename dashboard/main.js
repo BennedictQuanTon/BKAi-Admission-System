@@ -19,6 +19,7 @@ const ENDPOINTS = {
   stats: `${API_BASE}/api/stats`,
   health: `${API_BASE}/api/health`,
   evaluate: `${API_BASE}/api/admin/evaluate`,
+  delete: `${API_BASE}/api/admin/delete`,
 };
 
 const STEP_TRANSLATIONS = {
@@ -336,12 +337,13 @@ function flashValue(el) {
 // Charts
 // ═══════════════════════════════════════════
 function initCharts() {
-  Chart.defaults.color = "#9898b0";
-  Chart.defaults.borderColor = "rgba(255, 255, 255, 0.06)";
-  Chart.defaults.font.family = "'Inter', sans-serif";
+  Chart.defaults.color = "#64748b";
+  Chart.defaults.borderColor = "rgba(100, 116, 139, 0.12)";
+  Chart.defaults.font.family = "'Plus Jakarta Sans', 'Inter', -apple-system, sans-serif";
   Chart.defaults.font.size = 11;
+  Chart.defaults.font.weight = 600;
   Chart.defaults.plugins.legend.labels.usePointStyle = true;
-  Chart.defaults.plugins.legend.labels.pointStyleWidth = 12;
+  Chart.defaults.plugins.legend.labels.pointStyleWidth = 10;
 
   initSatisfactionChart();
   initTimingsChart();
@@ -358,18 +360,18 @@ function initSatisfactionChart() {
         {
           data: [0, 0, 0],
           backgroundColor: [
-            "rgba(16, 185, 129, 0.8)", // Emerald green
-            "rgba(239, 68, 68, 0.8)",   // Rose red
-            "rgba(245, 158, 11, 0.6)",  // Amber yellow
+            "rgba(16, 185, 129, 0.75)", // Emerald green
+            "rgba(239, 68, 68, 0.75)",   // Rose red
+            "rgba(245, 158, 11, 0.55)",  // Amber yellow
           ],
           borderColor: [
             "rgba(16, 185, 129, 1)",
             "rgba(239, 68, 68, 1)",
             "rgba(245, 158, 11, 1)",
           ],
-          borderWidth: 2,
-          hoverOffset: 8,
-          spacing: 3,
+          borderWidth: 1.5,
+          hoverOffset: 6,
+          spacing: 2,
           borderRadius: 4,
         },
       ],
@@ -377,19 +379,19 @@ function initSatisfactionChart() {
     options: {
       responsive: true,
       maintainAspectRatio: false,
-      cutout: "65%",
+      cutout: "70%",
       plugins: {
         legend: {
           position: "bottom",
           labels: {
             padding: 16,
             usePointStyle: true,
-            pointStyleWidth: 10,
+            pointStyleWidth: 8,
           },
         },
         tooltip: {
-          backgroundColor: "rgba(18, 18, 26, 0.95)",
-          borderColor: "rgba(255, 255, 255, 0.1)",
+          backgroundColor: "rgba(15, 23, 42, 0.95)",
+          borderColor: "rgba(255, 255, 255, 0.08)",
           borderWidth: 1,
           cornerRadius: 8,
           padding: 10,
@@ -418,18 +420,18 @@ function initTimingsChart() {
           label: "Time (seconds)",
           data: [0, 0],
           backgroundColor: [
-            "rgba(99, 102, 241, 0.6)",
-            "rgba(139, 92, 246, 0.6)",
+            "rgba(37, 99, 235, 0.75)", // Cobalt blue
+            "rgba(79, 70, 229, 0.75)", // Indigo
           ],
           borderColor: [
-            "rgba(99, 102, 241, 1)",
-            "rgba(139, 92, 246, 1)",
+            "rgba(37, 99, 235, 1)",
+            "rgba(79, 70, 229, 1)",
           ],
-          borderWidth: 2,
-          borderRadius: 8,
+          borderWidth: 1.5,
+          borderRadius: 6,
           borderSkipped: false,
-          barPercentage: 0.5,
-          categoryPercentage: 0.6,
+          barPercentage: 0.45,
+          categoryPercentage: 0.55,
         },
       ],
     },
@@ -440,7 +442,7 @@ function initTimingsChart() {
       scales: {
         x: {
           beginAtZero: true,
-          grid: { color: "rgba(255, 255, 255, 0.04)" },
+          grid: { color: "rgba(100, 116, 139, 0.08)" },
           ticks: {
             callback: (v) => `${v}s`,
           },
@@ -452,8 +454,8 @@ function initTimingsChart() {
       plugins: {
         legend: { display: false },
         tooltip: {
-          backgroundColor: "rgba(18, 18, 26, 0.95)",
-          borderColor: "rgba(255, 255, 255, 0.1)",
+          backgroundColor: "rgba(15, 23, 42, 0.95)",
+          borderColor: "rgba(255, 255, 255, 0.08)",
           borderWidth: 1,
           cornerRadius: 8,
           padding: 10,
@@ -476,29 +478,29 @@ function initTrendChart() {
         {
           label: "Total Questions",
           data: [],
-          borderColor: "rgba(96, 165, 250, 1)",
-          backgroundColor: "rgba(96, 165, 250, 0.1)",
+          borderColor: "rgba(37, 99, 235, 1)",
+          backgroundColor: "rgba(37, 99, 235, 0.06)",
           fill: true,
-          tension: 0.4,
+          tension: 0.35,
           pointRadius: 3,
           pointHoverRadius: 6,
-          pointBackgroundColor: "rgba(96, 165, 250, 1)",
-          pointBorderColor: "#12121a",
-          pointBorderWidth: 2,
+          pointBackgroundColor: "rgba(37, 99, 235, 1)",
+          pointBorderColor: "rgba(255, 255, 255, 0.9)",
+          pointBorderWidth: 1.5,
           borderWidth: 2,
         },
         {
           label: "Correct Answers",
           data: [],
           borderColor: "rgba(16, 185, 129, 1)",
-          backgroundColor: "rgba(16, 185, 129, 0.05)",
+          backgroundColor: "rgba(16, 185, 129, 0.03)",
           fill: true,
-          tension: 0.4,
+          tension: 0.35,
           pointRadius: 2,
           pointHoverRadius: 5,
           pointBackgroundColor: "rgba(16, 185, 129, 1)",
-          pointBorderColor: "#12121a",
-          pointBorderWidth: 2,
+          pointBorderColor: "rgba(255, 255, 255, 0.9)",
+          pointBorderWidth: 1.5,
           borderWidth: 1.5,
         },
       ],
@@ -517,7 +519,7 @@ function initTrendChart() {
         },
         y: {
           beginAtZero: true,
-          grid: { color: "rgba(255, 255, 255, 0.04)" },
+          grid: { color: "rgba(100, 116, 139, 0.08)" },
           ticks: {
             stepSize: 1,
             precision: 0,
@@ -534,8 +536,8 @@ function initTrendChart() {
           },
         },
         tooltip: {
-          backgroundColor: "rgba(18, 18, 26, 0.95)",
-          borderColor: "rgba(255, 255, 255, 0.1)",
+          backgroundColor: "rgba(15, 23, 42, 0.95)",
+          borderColor: "rgba(255, 255, 255, 0.08)",
           borderWidth: 1,
           cornerRadius: 8,
           padding: 10,
@@ -658,7 +660,11 @@ window.selectQuestion = function (index) {
   showPipelineDetail(q);
 };
 
-window.evaluateAnswer = async function (questionId, feedback) {
+window.evaluateAnswer = async function (feedback) {
+  if (selectedQuestion === null || !currentStats || !currentStats.recent_questions) return;
+  const q = currentStats.recent_questions[selectedQuestion];
+  if (!q) return;
+
   try {
     const res = await fetch(ENDPOINTS.evaluate, {
       method: "POST",
@@ -666,8 +672,10 @@ window.evaluateAnswer = async function (questionId, feedback) {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        question_id: questionId,
+        question_id: q.id || "undefined",
         feedback: feedback,
+        query: q.query,
+        timestamp: q.timestamp,
       }),
     });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
@@ -684,6 +692,71 @@ window.evaluateAnswer = async function (questionId, feedback) {
     alert("Failed to save evaluation. Please try again.");
   }
 };
+
+window.deleteQuestion = async function () {
+  if (selectedQuestion === null || !currentStats || !currentStats.recent_questions) return;
+  const q = currentStats.recent_questions[selectedQuestion];
+  if (!q) return;
+
+  if (!confirm("Are you sure you want to delete this question permanently? This will remove it from the stats and semantic cache.")) {
+    return;
+  }
+  
+  try {
+    const res = await fetch(ENDPOINTS.delete, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        question_id: q.id || "undefined",
+        query: q.query,
+        timestamp: q.timestamp,
+      }),
+    });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    
+    // Clear selection
+    selectedQuestion = null;
+    
+    // Refresh dashboard stats
+    await fetchStats();
+    
+    elements.pipelineDetail.innerHTML = `
+      <p class="detail-hint">Chọn một câu hỏi ở danh sách bên trái để kiểm tra quy trình xử lý của Agent và duyệt lưu Cache.</p>
+    `;
+    
+    // Reset visual nodes
+    resetPipelineNodes();
+  } catch (err) {
+    console.error("[Dashboard] Delete error:", err);
+    alert("Failed to delete question. Please try again.");
+  }
+};
+
+function resetPipelineNodes() {
+  const nodes = {
+    nodeCache: document.getElementById("nodeCache"),
+    nodeRewrite: document.getElementById("nodeRewrite"),
+    nodeRetrieval: document.getElementById("nodeRetrieval"),
+    nodeGenerate: document.getElementById("nodeGenerate"),
+    nodeReflect: document.getElementById("nodeReflect"),
+  };
+  const statuses = {
+    nodeCacheStatus: document.getElementById("nodeCacheStatus"),
+    nodeRewriteStatus: document.getElementById("nodeRewriteStatus"),
+    nodeRetrievalStatus: document.getElementById("nodeRetrievalStatus"),
+    nodeGenerateStatus: document.getElementById("nodeGenerateStatus"),
+    nodeReflectStatus: document.getElementById("nodeReflectStatus"),
+  };
+  Object.values(nodes).forEach((n) => {
+    n.className = "pipeline-node";
+  });
+  Object.values(statuses).forEach((s) => {
+    s.textContent = "—";
+    s.style.color = "var(--text-muted)";
+  });
+}
 
 function updatePipelineNodes(q) {
   const nodes = {
@@ -781,6 +854,12 @@ function showPipelineDetail(q) {
   const confidence = trace.confidence || 0;
   const confColor = confidence > 0.8 ? "var(--success)" : (confidence > 0.5 ? "var(--warning)" : "var(--danger)");
   
+  const responseTimeVal = q.response_time 
+    ? `${q.response_time.toFixed(2)}s` 
+    : (timings && Object.keys(timings).length > 0
+        ? `${Object.values(timings).reduce((a, b) => a + b, 0).toFixed(2)}s`
+        : "N/A");
+
   elements.pipelineDetail.innerHTML = `
     <div class="detail-content trace-panel">
       <div class="trace-header">
@@ -813,22 +892,26 @@ function showPipelineDetail(q) {
 
       <div class="trace-section">
         <h4 class="trace-title">Generated Answer</h4>
-        <div class="trace-box">${escapeHtml((q.answer || "N/A").substring(0, 300))}${(q.answer || "").length > 300 ? "..." : ""}</div>
+        <div class="trace-box generated-answer-box" style="white-space: pre-wrap;">${escapeHtml(q.answer || "N/A")}</div>
       </div>
       
       <div class="trace-meta" style="margin-bottom: 12px;">
         <span class="meta-chip">⚡ Cache: ${q.cached ? "Hit" : "Miss"}</span>
+        <span class="meta-chip">⏱️ Response Time: ${responseTimeVal}</span>
         <span class="meta-chip">⭐ Evaluation: ${feedbackLabel}</span>
         <span class="meta-chip">🕐 ${time}</span>
       </div>
 
-      <div class="evaluate-actions" style="margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--border); display: flex; align-items: center; gap: 12px;">
+      <div class="evaluate-actions" style="margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--border); display: flex; align-items: center; gap: 12px; width: 100%;">
         <span style="font-size: 11px; font-weight: 600; color: var(--text-secondary);">Evaluate Answer:</span>
-        <button onclick="window.evaluateAnswer('${q.id}', 'like')" class="eval-btn eval-btn-like">
+        <button onclick="window.evaluateAnswer('like')" class="eval-btn eval-btn-like">
           ✓ Correct
         </button>
-        <button onclick="window.evaluateAnswer('${q.id}', 'dislike')" class="eval-btn eval-btn-dislike">
+        <button onclick="window.evaluateAnswer('dislike')" class="eval-btn eval-btn-dislike">
           ✗ Incorrect
+        </button>
+        <button onclick="window.deleteQuestion()" class="eval-btn eval-btn-delete" style="margin-left: auto;">
+          🗑 Delete
         </button>
       </div>
     </div>

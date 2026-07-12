@@ -327,14 +327,28 @@ def update_question_feedback(query: str, feedback: str) -> None:
         logger.warning("stats_feedback_error", error=str(e))
 
 
-def evaluate_question_by_id(question_id: str, feedback: str) -> bool:
-    """Finds a question by ID, updates its feedback rating, and updates counters."""
+def evaluate_question_by_id(
+    question_id: str,
+    feedback: str,
+    query: str | None = None,
+    timestamp: float | None = None,
+) -> bool:
+    """Finds a question by ID (or query+timestamp fallback for old entries),
+    updates its feedback rating, and updates counters."""
     r = get_redis_stats()
     try:
         elements = r.lrange(QUESTIONS_KEY, 0, -1)
         for idx, elem in enumerate(elements):
             item = json.loads(elem)
-            if item.get("id") == question_id:
+            
+            matched = False
+            if item.get("id") and item.get("id") == question_id:
+                matched = True
+            elif (not item.get("id") or question_id == "undefined") and query and timestamp:
+                if item.get("query") == query and abs(item.get("timestamp", 0) - timestamp) < 1.0:
+                    matched = True
+
+            if matched:
                 old_feedback = item.get("feedback", "unrated")
                 if old_feedback == feedback:
                     return True
@@ -365,6 +379,61 @@ def evaluate_question_by_id(question_id: str, feedback: str) -> bool:
         return False
     except Exception as e:
         logger.warning("evaluate_question_by_id_error", error=str(e))
+        return False
+
+
+def delete_question_by_id(
+    question_id: str,
+    query: str | None = None,
+    timestamp: float | None = None,
+) -> bool:
+    """Finds a question by ID (or query+timestamp fallback for old entries),
+    deletes it from stats history and semantic cache, and decrements counters."""
+    r_stats = get_redis_stats()
+    r_cache = get_redis_cache()
+    try:
+        elements = r_stats.lrange(QUESTIONS_KEY, 0, -1)
+        for idx, elem in enumerate(elements):
+            item = json.loads(elem)
+            
+            matched = False
+            if item.get("id") and item.get("id") == question_id:
+                matched = True
+            elif (not item.get("id") or question_id == "undefined") and query and timestamp:
+                if item.get("query") == query and abs(item.get("timestamp", 0) - timestamp) < 1.0:
+                    matched = True
+
+            if matched:
+                # 1. Remove from the Redis stats list
+                r_stats.lrem(QUESTIONS_KEY, 1, elem)
+                
+                # 2. Decrement counters
+                r_stats.decr(f"{STATS_PREFIX}total")
+                
+                feedback = item.get("feedback", "unrated")
+                if feedback == "like":
+                    r_stats.decr(f"{STATS_PREFIX}liked")
+                elif feedback == "dislike":
+                    r_stats.decr(f"{STATS_PREFIX}disliked")
+                    
+                if item.get("cached"):
+                    r_stats.decr(f"{STATS_PREFIX}cache_hits")
+                    
+                # Update stats snapshot
+                record_stats_snapshot()
+                
+                # 3. Delete from semantic cache
+                query_str = item.get("query")
+                if query_str:
+                    cache_key = f"{CACHE_PREFIX}{hashlib.md5(query_str.encode()).hexdigest()}"
+                    r_cache.delete(f"{cache_key}:meta")
+                    r_cache.delete(cache_key)
+                    
+                logger.info("question_deleted", question_id=item.get("id"))
+                return True
+        return False
+    except Exception as e:
+        logger.warning("delete_question_by_id_error", error=str(e))
         return False
 
 

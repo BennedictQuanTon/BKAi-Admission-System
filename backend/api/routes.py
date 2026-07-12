@@ -19,13 +19,13 @@ from api.schemas import (
     FeedbackRequest, FeedbackResponse,
     StatsResponse, HealthResponse,
     VoiceTranscribeResponse, VoiceAskRequest, VoiceAskResponse,
-    AdminEvaluateRequest,
+    AdminEvaluateRequest, AdminDeleteRequest,
 )
 from memory.semantic_cache import (
     check_cache, store_in_cache,
     update_feedback, update_question_feedback,
     record_question, get_stats, record_error,
-    evaluate_question_by_id,
+    evaluate_question_by_id, delete_question_by_id,
 )
 from api.dashboard_manager import stream_progress
 from memory.conversation import get_conversation_memory
@@ -247,7 +247,27 @@ async def admin_evaluate(request: AdminEvaluateRequest):
     """
     Evaluate a question response correctness from the admin dashboard.
     """
-    success = evaluate_question_by_id(request.question_id, request.feedback)
+    success = evaluate_question_by_id(
+        request.question_id,
+        request.feedback,
+        query=request.query,
+        timestamp=request.timestamp,
+    )
+    if not success:
+        raise HTTPException(status_code=404, detail="Question not found")
+    return {"status": "ok"}
+
+
+@router.post("/admin/delete")
+async def admin_delete(request: AdminDeleteRequest):
+    """
+    Delete a question permanently from both stats and semantic cache.
+    """
+    success = delete_question_by_id(
+        request.question_id,
+        query=request.query,
+        timestamp=request.timestamp,
+    )
     if not success:
         raise HTTPException(status_code=404, detail="Question not found")
     return {"status": "ok"}
