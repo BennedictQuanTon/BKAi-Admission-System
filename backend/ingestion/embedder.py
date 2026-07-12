@@ -53,7 +53,7 @@ def get_embedding_model() -> SentenceTransformer:
         )
         logger.info(
             "embedding_model_loaded",
-            dim=_embedding_model.get_sentence_embedding_dimension(),
+            dim=_embedding_model.get_embedding_dimension(),
         )
     return _embedding_model
 
@@ -61,7 +61,7 @@ def get_embedding_model() -> SentenceTransformer:
 def get_embedding_dimension() -> int:
     if _use_bge_m3():
         return 1024
-    return get_embedding_model().get_sentence_embedding_dimension()
+    return get_embedding_model().get_embedding_dimension()
 
 
 def get_chroma_client() -> chromadb.ClientAPI:
