@@ -4,6 +4,9 @@ BkAI — Agentic RAG Tư vấn Tuyển sinh ĐH Bách Khoa.
 
 from __future__ import annotations
 
+import torch
+torch.set_num_threads(2)
+
 from contextlib import asynccontextmanager
 from typing import AsyncGenerator
 
@@ -30,8 +33,11 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     )
 
     try:
-        from ingestion.embedder import get_embedding_model
-        get_embedding_model()
+        from ingestion.embedder import get_embedding_model, get_bge_model
+        if "bge-m3" in settings.embedding.model.lower():
+            get_bge_model()
+        else:
+            get_embedding_model()
         logger.info("embedding_model_warmed")
     except Exception as e:
         logger.warning("embedding_warmup_failed", error=str(e))

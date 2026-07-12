@@ -13,7 +13,6 @@ from tools.vector_search import SearchResult, vector_search
 from tools.bm25_search import bm25_search
 from tools.hybrid_search import hybrid_search
 from tools.reranker import rerank
-from tools.web_search import web_search
 
 __all__ = [
     "SearchResult",
@@ -21,5 +20,4 @@ __all__ = [
     "bm25_search",
     "hybrid_search",
     "rerank",
-    "web_search",
 ]

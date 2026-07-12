@@ -26,7 +26,7 @@ class GeminiSettings(BaseSettings):
 
     model_config = SettingsConfigDict(env_prefix="GEMINI_")
 
-    model_primary: str = "gemini-2.5-flash"
+    model_primary: str = "gemini-2.5-flash-lite"
     model_fast: str = "gemini-2.5-flash-lite"
     rpm_limit_lite: int = 10
     rpm_limit_flash: int = 10
@@ -59,18 +59,11 @@ class ChromaSettings(BaseSettings):
     collection_name: str = "bkai_knowledge"
 
 
-class QdrantSettings(BaseSettings):
-    model_config = SettingsConfigDict(env_prefix="QDRANT_")
-
-    url: str = "http://localhost:6333"
-    collection_name: str = "bkai_knowledge"
-    enabled: bool = False
-
 
 class EmbeddingSettings(BaseSettings):
     model_config = SettingsConfigDict(env_prefix="EMBEDDING_")
 
-    model: str = "BAAI/bge-m3"
+    model: str = "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2"
     device: str = "cpu"
     batch_size: int = 32
 
@@ -157,7 +150,6 @@ class Settings(BaseSettings):
     gemini: GeminiSettings = Field(default_factory=GeminiSettings)
     redis: RedisSettings = Field(default_factory=RedisSettings)
     chroma: ChromaSettings = Field(default_factory=ChromaSettings)
-    qdrant: QdrantSettings = Field(default_factory=QdrantSettings)
     embedding: EmbeddingSettings = Field(default_factory=EmbeddingSettings)
     search: SearchSettings = Field(default_factory=SearchSettings)
     cache: CacheSettings = Field(default_factory=CacheSettings)

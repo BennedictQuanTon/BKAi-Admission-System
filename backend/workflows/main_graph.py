@@ -15,7 +15,6 @@ from agents.retriever import evaluate_results_node, retrieve_node
 from agents.self_reflection import self_reflect_node, should_retry
 from agents.state import AgentState
 from memory.conversation import get_conversation_memory
-from tools.mcp_scraper import mcp_scrape_node
 from utils.logger import AgentTracer, get_logger
 
 logger = get_logger(__name__)
@@ -28,7 +27,6 @@ def build_graph() -> StateGraph:
     graph.add_node("query_rewrite", query_rewrite_node)
     graph.add_node("retrieve", retrieve_node)
     graph.add_node("evaluate_results", evaluate_results_node)
-    graph.add_node("mcp_scrape", mcp_scrape_node)
     graph.add_node("generate", generate_answer_node)
     graph.add_node("self_reflect", self_reflect_node)
 
@@ -42,11 +40,9 @@ def build_graph() -> StateGraph:
         {
             "sufficient": "generate",
             "need_more": "retrieve",
-            "no_data": "mcp_scrape",
         },
     )
 
-    graph.add_edge("mcp_scrape", "generate")
     graph.add_edge("generate", "self_reflect")
 
     graph.add_conditional_edges(
@@ -58,12 +54,10 @@ def build_graph() -> StateGraph:
     return graph
 
 
-def _route_after_evaluation(state: AgentState) -> Literal["sufficient", "need_more", "no_data"]:
+def _route_after_evaluation(state: AgentState) -> Literal["sufficient", "need_more"]:
     decision = state.get("retrieval_decision", "SUFFICIENT")
     if decision == "NEED_MORE":
         return "need_more"
-    if decision == "NO_DATA":
-        return "no_data"
     return "sufficient"
 
 

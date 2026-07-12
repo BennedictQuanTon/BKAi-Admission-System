@@ -6,6 +6,18 @@ from __future__ import annotations
 import argparse
 import sys
 import time
+import os
+
+# Limit CPU threads for PyTorch, NumPy, and OpenMP to prevent high RAM/CPU spikes
+os.environ["OMP_NUM_THREADS"] = "4"
+os.environ["MKL_NUM_THREADS"] = "4"
+os.environ["OPENBLAS_NUM_THREADS"] = "4"
+os.environ["VECLIB_MAXIMUM_THREADS"] = "4"
+os.environ["NUMEXPR_NUM_THREADS"] = "4"
+os.environ["TOKENIZERS_PARALLELISM"] = "false"
+
+import torch
+torch.set_num_threads(4)
 
 from config.settings import get_settings
 from utils.logger import setup_logging, get_logger
@@ -37,26 +49,25 @@ def run_ingestion(collection_name: str | None = None) -> None:
         build_bm25_index,
         embed_chunks,
         ingest_to_chromadb,
-        ingest_to_qdrant,
     )
 
     embeddings = embed_chunks(chunks)
-
-    if settings.qdrant.enabled:
-        count = ingest_to_qdrant(chunks, collection_name or settings.qdrant.collection_name)
-        store_label = "Qdrant"
-    else:
-        count = ingest_to_chromadb(chunks, embeddings, collection_name)
-        store_label = "ChromaDB"
+    count = ingest_to_chromadb(chunks, embeddings, collection_name)
+    store_label = "ChromaDB"
+    embedding_dim = len(embeddings[0])
 
     bm25_path = build_bm25_index(chunks)
     elapsed = time.time() - t0
+
+    # Explicit garbage collection to free memory
+    import gc
+    gc.collect()
 
     print(f"\n{'='*60}")
     print("  ✅ Ingestion Complete!")
     print(f"  📄 Documents loaded:  {len(documents)}")
     print(f"  🧩 Chunks created:    {len(chunks)}")
-    print(f"  📐 Embedding dim:     {len(embeddings[0])}")
+    print(f"  📐 Embedding dim:     {embedding_dim}")
     print(f"  💾 {store_label} count:    {count}")
     print(f"  🔍 BM25 index:        {bm25_path}")
     print(f"  ⏱  Time elapsed:      {elapsed:.1f}s")

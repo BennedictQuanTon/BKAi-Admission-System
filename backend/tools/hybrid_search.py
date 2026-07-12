@@ -1,12 +1,11 @@
 """
-BkAI Hybrid Search — Qdrant (primary) or ChromaDB + BM25 fallback.
+BkAI Hybrid Search — ChromaDB + BM25.
 """
 
 from __future__ import annotations
 
 from config.settings import get_settings
 from tools.bm25_search import bm25_search
-from tools.qdrant_search import qdrant_hybrid_search
 from tools.vector_search import SearchResult, vector_search
 from utils.logger import get_logger
 
@@ -50,12 +49,6 @@ def hybrid_search(
 ) -> list[SearchResult]:
     settings = get_settings()
     k = top_k or settings.search.retrieval_top_k
-
-    if settings.qdrant.enabled:
-        try:
-            return qdrant_hybrid_search(query, top_k=k)
-        except Exception as e:
-            logger.error("qdrant_search_failed_fallback", error=str(e))
 
     fetch_k = k * 2
     vector_results = vector_search(query, top_k=fetch_k, filters=filters)

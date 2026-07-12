@@ -2,21 +2,19 @@
 # BKAi — Docker Compose
 # Hệ thống Tư vấn Tuyển sinh Bách Khoa
 # =============================================
-# Ollama chạy trên máy host (Mac), không trong Docker.
 # Khởi chạy: docker compose up --build -d
 # Tắt:       docker compose down
 # =============================================
 
 services:
-  # ── Redis: Semantic Cache & Stats ──
+  # ── Redis Stack: Semantic Cache & Stats ──
   redis:
-    image: redis:7-alpine
+    image: redis/redis-stack-server:latest
     container_name: bkai-redis
     ports:
       - "6380:6379"   # Host 6380 to avoid conflict with local Redis on 6379
     volumes:
       - redis_data:/data
-    command: redis-server --appendonly yes
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 10s
@@ -32,38 +30,13 @@ services:
     container_name: bkai-backend
     ports:
       - "8000:8000"
+    env_file:
+      - ./backend/.env
     environment:
-      # Ollama chạy trên máy host Mac
-      - OLLAMA_BASE_URL=http://host.docker.internal:11434
-      - OLLAMA_MODEL_PRIMARY=qwen2.5:7b
-      - OLLAMA_MODEL_FAST=llama3.2
-      # Redis trong Docker network
+      # Override local Redis URL to point to the docker container
       - REDIS_URL=redis://redis:6379/0
-      - REDIS_CACHE_DB=1
-      - REDIS_STATS_DB=2
-      # ChromaDB
-      - CHROMA_PERSIST_DIR=./memory/vector_db
-      - CHROMA_COLLECTION_NAME=bkai_knowledge
-      # Embedding
-      - EMBEDDING_MODEL=paraphrase-multilingual-MiniLM-L12-v2
-      # API
-      - API_HOST=0.0.0.0
-      - API_PORT=8000
-      - API_CORS_ORIGINS=http://localhost:5173,http://localhost:5174
-      # Search
-      - HYBRID_SEARCH_ALPHA=0.7
-      - RERANK_TOP_K=5
-      - RETRIEVAL_TOP_K=20
-      # Cache
-      - SEMANTIC_CACHE_THRESHOLD=0.92
-      - CACHE_TTL_UNRATED=604800
-      - CACHE_TTL_LIKED=2592000
-      # Security
-      - MAX_CONCURRENT_USERS=15
-      - RATE_LIMIT_PER_MINUTE=30
-      - MAX_INPUT_LENGTH=500
-      # Web Search
-      - WEB_SEARCH_DOMAIN=hcmut.edu.vn
+      # Override CORS to allow frontend and dashboard
+      - API_CORS_ORIGINS=http://localhost:5173,http://localhost:5174,http://localhost:5175
     volumes:
       - chroma_data:/app/memory/vector_db
       - ./backend/data:/app/data

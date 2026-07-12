@@ -20,8 +20,8 @@ logger = get_logger(__name__)
 # ──────────────────────────────────────────────
 _reranker: CrossEncoder | None = None
 
-# Lightweight cross-encoder optimized for speed
-RERANKER_MODEL = "BAAI/bge-reranker-v2-m3"
+# Lightweight cross-encoder optimized for speed and RAM
+RERANKER_MODEL = "BAAI/bge-reranker-base"
 
 
 def get_reranker() -> CrossEncoder:

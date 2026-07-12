@@ -80,20 +80,22 @@ async def evaluate_results_node(state: AgentState) -> dict:
     original = state["original_query"]
 
     if not results:
-        decision = "NO_DATA"
+        decision = "SUFFICIENT"
     elif hops >= MAX_HOPS:
         decision = "SUFFICIENT"
     elif len(results) >= 3 and results[0].get("score", 0) > 0.01:
         decision = "SUFFICIENT"
     else:
         decision = await _llm_evaluate(original, results)
+        if decision == "NO_DATA":
+            decision = "SUFFICIENT"
 
     elapsed = time.time() - t0
     tracer.end("evaluate_results", decision=decision, elapsed=round(elapsed, 2))
 
     return {
         "retrieval_decision": decision,
-        "should_web_search": decision == "NO_DATA",
+        "should_web_search": False,
         "current_step": "evaluate_results",
         "step_timings": {
             **state.get("step_timings", {}),

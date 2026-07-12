@@ -108,13 +108,17 @@ def check_cache(query: str) -> dict | None:
     try:
         query_emb = _embed_query(query)
 
-        from memory.redis_vector_cache import vector_cache_search
-        vector_hit = vector_cache_search(r, query_emb, threshold)
-        if vector_hit:
-            logger.info("cache_hit", similarity=vector_hit.get("similarity"))
-            return vector_hit
+        from memory.redis_vector_cache import vector_cache_search, ensure_vector_index
+        if ensure_vector_index(r):
+            vector_hit = vector_cache_search(r, query_emb, threshold)
+            if vector_hit:
+                logger.info("cache_hit", similarity=vector_hit.get("similarity"))
+                return vector_hit
+            # If the vector search index is functional but returned None, it is a genuine cache miss.
+            return None
 
-        # Legacy fallback scan
+        # Legacy fallback scan (only run if vector index is unavailable)
+        logger.warning("vector_index_unavailable_running_legacy_fallback")
         keys = r.keys(f"{CACHE_PREFIX}*")
         best_match = None
         best_sim = 0.0

@@ -1,7 +1,7 @@
 """
 BkAI Embedding & Ingestion Pipeline.
 
-Supports BGE-M3 (dense + sparse for Qdrant) and legacy MiniLM/ChromaDB.
+Supports ChromaDB and BM25 indexing.
 """
 
 from __future__ import annotations
@@ -13,7 +13,6 @@ from pathlib import Path
 
 import chromadb
 import numpy as np
-from qdrant_client import QdrantClient, models
 from sentence_transformers import SentenceTransformer
 
 from config.settings import get_settings
@@ -26,7 +25,6 @@ logger = get_logger(__name__)
 _embedding_model: SentenceTransformer | None = None
 _bge_model = None
 _chroma_client: chromadb.ClientAPI | None = None
-_qdrant_client: QdrantClient | None = None
 
 
 def _use_bge_m3() -> bool:
@@ -76,14 +74,6 @@ def get_chroma_client() -> chromadb.ClientAPI:
     return _chroma_client
 
 
-def get_qdrant_client() -> QdrantClient:
-    global _qdrant_client
-    if _qdrant_client is None:
-        settings = get_settings()
-        _qdrant_client = QdrantClient(url=settings.qdrant.url)
-        logger.info("qdrant_client_initialized", url=settings.qdrant.url)
-    return _qdrant_client
-
 
 def encode_texts(texts: list[str]) -> tuple[list[list[float]], list[dict[int, float]]]:
     if _use_bge_m3():
@@ -129,52 +119,6 @@ def embed_chunks(chunks: list[Chunk], batch_size: int | None = None) -> list[lis
     return dense
 
 
-def ingest_to_qdrant(chunks: list[Chunk], collection_name: str | None = None) -> int:
-    settings = get_settings()
-    client = get_qdrant_client()
-    name = collection_name or settings.qdrant.collection_name
-    dim = get_embedding_dimension()
-
-    if client.collection_exists(name):
-        client.delete_collection(name)
-
-    client.create_collection(
-        collection_name=name,
-        vectors_config={
-            "dense": models.VectorParams(size=dim, distance=models.Distance.COSINE),
-        },
-        sparse_vectors_config={
-            "sparse": models.SparseVectorParams(
-                index=models.SparseIndexParams(on_disk=False),
-            ),
-        },
-    )
-
-    texts = [c.content for c in chunks]
-    dense_vecs, sparse_vecs = encode_texts(texts)
-    points = []
-
-    for chunk, dense, sparse in zip(chunks, dense_vecs, sparse_vecs):
-        payload = {"content": chunk.content, **chunk.metadata}
-        point_id = str(uuid.uuid5(uuid.NAMESPACE_DNS, _make_chunk_id(chunk)))
-        vectors = {"dense": dense}
-        if sparse:
-            vectors["sparse"] = models.SparseVector(
-                indices=list(sparse.keys()),
-                values=list(sparse.values()),
-            )
-        points.append(models.PointStruct(id=point_id, vector=vectors, payload=payload))
-
-    batch_size = 64
-    total = 0
-    for i in range(0, len(points), batch_size):
-        batch = points[i:i + batch_size]
-        client.upsert(collection_name=name, points=batch)
-        total += len(batch)
-
-    logger.info("qdrant_ingestion_complete", collection=name, chunks=total)
-    return total
-
 
 def ingest_to_chromadb(
     chunks: list[Chunk],
@@ -184,6 +128,11 @@ def ingest_to_chromadb(
     settings = get_settings()
     client = get_chroma_client()
     col_name = collection_name or settings.chroma.collection_name
+    try:
+        client.delete_collection(col_name)
+        logger.info("chromadb_stale_collection_deleted", collection=col_name)
+    except Exception:
+        pass
     collection = client.get_or_create_collection(
         name=col_name,
         metadata={"hnsw:space": "cosine"},
