@@ -15,8 +15,8 @@ During data preprocessing and ingestion, the system loads and parses **115 sourc
 
 **4 Core Key Values:**
 *   **Achieved high factual accuracy** in admissions consulting, as measured by a **96.8% score on 250 golden Q&A test cases**, by developing an iterative multi-hop RAG pipeline with **LangGraph, Gemini 3.1 Flash-Lite, and Pydantic validation**.
-*   **Reduced query latency** for recurring queries, as measured by a **95%+ execution time drop (from 1.2s to < 0.05s) for cache hits**, leading to an overall average response time of **9.47s** across **250 test cases**, by deploying a high-performance **Redis Stack HNSW vector cache**, **sentence-transformers (MiniLM-L12-v2)**.
-*   **Secured data privacy** for admissions files, as measured by **local hosting of all sensitive context** inside Docker, by building a hybrid search pipeline with **ChromaDB (dense), BM25 (lexical), and BGE Cross-Encoder reranking**.
+*   **Reduced query latency** for recurring queries, as measured by a **95%+ execution time drop (from 9.47s to < 0.05s) for cache hits**, leading to an overall average response time of **9.47s** for uncached queries across **250 test cases**, by deploying a high-performance **Redis Stack HNSW vector cache**, **sentence-transformers (MiniLM-L12-v2)**, and **Gemini 3.1 Flash-Lite**.
+*   **Secured data privacy** for admissions files, as measured by **local hosting of all 115 source documents (150 semantic chunks)** inside Docker, by building a hybrid search pipeline with **ChromaDB (dense), BM25 (lexical), and BGE Cross-Encoder reranking**.
 *   **Optimized system observability** and debugging efficiency, as measured by **real-time tracking of agent execution paths**, by building a telemetry dashboard with **React, Recharts, FastAPI WebSockets, and Redis DB 2**.
 
 
