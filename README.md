@@ -409,6 +409,7 @@ The primary configurations located in `backend/.env` are:
 3.  **Database Querying (Text-to-SQL):** Connect structured candidate databases to query admissions statistical reports securely.
 4.  **Scale Redis Stack:** Migrate to hosted Redis Enterprise or elastic instances to support millions of queries.
 5.  **RAGAS Evaluation Automated CI/CD:** Set up evaluation scripts to validate retrieval accuracy automatically on data updates.
+6.  **Enterprise Big Data Scaling & Heavy Models:** Migrate local ChromaDB storage to **Qdrant** for large-scale distributed vector search, and restore high-performance models previously disabled due to local RAM limits (e.g., **BAAI/bge-m3** embeddings and self-hosted **Qwen-2.5-7B** / **Llama-3.2** LLMs).
 
 ---
 *This technical report is maintained and structured according to project review specifications.*
