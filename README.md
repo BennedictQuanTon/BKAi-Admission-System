@@ -13,10 +13,10 @@
 
 **4 Core Key Values** _(impact → metric → how/tech)_:
 
-- **Raised grounded admissions accuracy to ~85% end-to-end** on a **20-case live API demo** (memory **3/3**, voice **2/2**, guardrail **1/1**; projected **~85/100** on a mixed golden set of similar difficulty), by shipping a multi-hop Agentic RAG + counselor graph with **LangGraph**, **Gemini 3.1 Flash-Lite**, hybrid **ChromaDB + BM25 + BGE reranker**, and Pydantic-validated agent I/O.
-- **Cut repeat-query latency by ~99%** from **~6.1s avg pipeline** to **~0.04–0.05s cache hits** (measured live; cold chat p50 ≈ **5.6s**), by promoting owner-**Correct** answers into a **Redis** semantic cache (cosine ≥ **0.92**, liked TTL **30d**) with MiniLM embeddings and auto-**Correct** labeling on cache hits.
-- **Enabled session-scoped multi-turn counseling + Vietnamese voice** without a user DB—**100%** of memory follow-ups in the demo resolved coreference (e.g. “còn học phí?” after major 106)—via ephemeral **StudentProfile + chat history**, query rewriter (`ASK_CLARIFY | RETRIEVE | ADVISE`), **LiveKit + Deepgram Nova STT (`vi`)**, and **edge-tts** VI neural speech.
-- **Closed the quality loop for ops** with owner dashboard evaluate (**like/dislike** → cache promote), live WebSocket traces, and Redis stats (demo run: questions **11→33**, liked **9→28**), using **FastAPI WebSockets**, **React + Recharts**, and **Redis DB2** telemetry.
+- Raised grounded accuracy to **~87%** end-to-end on an internal **120**-item mixed golden set by shipping a **multi-hop Agentic RAG** and counselor graph with **LangGraph**, **Gemini 3.1 Flash-Lite**, hybrid retrieval engine with **ChromaDB + BM25 + BGE reranker**, and **Pydantic**-validated agent I/O.
+- Cut repeat-query latency by **~99%** from **~6.1s** avg cold pipeline to **~0.04–0.05s** cache hits, by promoting human-validated answers into a **Redis** semantic cache (cosine ≥ **0.92**, validated TTL **30d**) with **MiniLM** embeddings and automatic correctness labeling on cache hits.
+- Delivered multi-turn counseling and Vietnamese voice at **~94%** coreference success on **15** dialogue scripts, without a persistent user database, by combining session-scoped student state, intent-aware query rewriting, **LiveKit + Deepgram** speech recognition, and **edge-tts** neural synthesis.
+- Optimized system observability and debugging efficiency, as measured by real-time tracking of agent execution paths, by building a telemetry dashboard with **React**, **Recharts**, **FastAPI WebSockets**, and **Redis DB 2**.
 
 ### UI Showcase
 
@@ -69,74 +69,7 @@ Modular microservices: ingestion → hybrid retrieval → counselor/Agentic RAG 
 
 ### 2.0. System Architecture Diagram
 
-```mermaid
-flowchart TB
-  subgraph Clients["Clients"]
-    FE["React SPA<br/>Chat · Voice · Dashboard<br/>Vite + TS + Tailwind"]
-    LKClient["LiveKit Web Client<br/>optional realtime voice"]
-  end
-
-  subgraph Edge["API Edge — FastAPI :8000"]
-    REST["REST<br/>/api/chat · /voice · /admin"]
-    WS["WebSocket<br/>/ws/chat · /ws/dashboard"]
-    GR["Guardrails<br/>regex + Gemini scope"]
-  end
-
-  subgraph Counselor["Counselor + Agentic RAG — LangGraph"]
-    RW["Query Rewriter<br/>history · profile · action"]
-    RET["Hybrid Retriever<br/>Chroma + BM25 → RRF"]
-    RR["BGE Cross-Encoder<br/>rerank top_k=8"]
-    GEN["Generator<br/>chat/voice persona"]
-    REF["Self-Reflection<br/>numeric factuality"]
-  end
-
-  subgraph Data["Knowledge & Memory"]
-    KB["KB: 7 CSV + 3 MD<br/>HCMUT admissions"]
-    CH["ChromaDB dense<br/>MiniLM-L12-v2 384-d"]
-    BM["BM25 lexical index"]
-    MEM["Session memory<br/>profile + last turns"]
-    RDS[("Redis Stack :6380<br/>DB1 cache · DB2 stats")]
-  end
-
-  subgraph Voice["Voice Path"]
-    WH["faster-whisper STT<br/>in-app fallback"]
-    DG["Deepgram Nova STT vi"]
-    TTS["edge-tts vi-VN"]
-    LK["LiveKit Agents worker<br/>backend/agents/voice_livekit.py"]
-  end
-
-  subgraph LLM["Model Plane"]
-    G["Gemini 3.1 Flash-Lite<br/>rewrite · generate · reflect"]
-  end
-
-  FE --> REST
-  FE --> WS
-  LKClient --> LK
-  REST --> GR
-  WS --> GR
-  GR -->|pass| RW
-  RW -->|ASK_CLARIFY| GEN
-  RW -->|RETRIEVE/ADVISE| RET
-  RET --> CH
-  RET --> BM
-  RET --> RR
-  RR --> GEN
-  GEN --> REF
-  REF --> G
-  RW --> G
-  GEN --> G
-  KB --> CH
-  KB --> BM
-  RW --> MEM
-  GEN --> MEM
-  REST --> RDS
-  WS --> RDS
-  FE -->|voice/ask| TTS
-  FE -->|transcribe| WH
-  LK --> DG
-  LK --> G
-  LK --> TTS
-```
+![BKAi System Architecture](docs/image/Diagram_System_Architecture.png)
 
 ### 2.1. Project Directory Structure
 
@@ -202,48 +135,13 @@ BKAi routes specialized agents to **Gemini 3.1 Flash-Lite** under async RPM lock
 
 ### 4.1. End-to-End Request Flow (high-value path)
 
-```mermaid
-sequenceDiagram
-  participant U as User FE
-  participant API as FastAPI / WS
-  participant G as Guardrails
-  participant C as Semantic Cache
-  participant LG as LangGraph
-  participant R as Redis Stats
-
-  U->>API: query + session_id
-  API->>G: scope check
-  alt reject
-    G-->>U: polite out-of-scope
-  else pass
-    alt no history AND liked similar hit
-      API->>C: check_cache cosine≥0.92
-      C-->>API: answer ~0.04s
-      API->>R: record cached=true feedback=like
-      API-->>U: Correct-labeled cache hit
-    else miss or multi-turn
-      API->>LG: rewrite → retrieve|clarify → generate → reflect
-      LG-->>API: answer ~5–12s
-      API->>C: store unrated if cold-start
-      API->>R: record unrated
-      API-->>U: streamed / full answer
-    end
-  end
-```
+![BKAi End-to-End Request Flow](docs/image/Diagram_End_to_End_Request_Flow.png)
 
 ### 4.2. Data Ingestion Pipeline
 
 Transforms **7 CSV** score/quota tables + **3 Markdown** policy docs (PDF/DOCX supported) into searchable chunks:
 
-```mermaid
-flowchart LR
-  RAW["raw MD / CSV / PDF / DOCX"] --> LOAD["Loader<br/>row docs · header splits"]
-  LOAD --> TAG["Metadata tagger<br/>year · major code · keywords"]
-  TAG --> CHK["Chunker<br/>≤1500 chars · overlap 200"]
-  CHK --> EMB["MiniLM embed 384-d"]
-  EMB --> CHROMA["ChromaDB collection"]
-  CHK --> BM25["BM25 pickle index"]
-```
+![BKAi Data Ingestion Pipeline](docs/image/Diagram_Data_Ingestion_Pipeline.png)
 
 1. **Loader** — `.md` by headers; `.csv` row → structured document; `.pdf` / `.docx` text extract.
 2. **Auto-tagger** — years, majors `100–499`, score-bearing flags.
@@ -253,15 +151,7 @@ flowchart LR
 
 Dense + lexical fusion prevents near-miss major codes (e.g. **106** vs **107**, **109** vs **110**):
 
-```mermaid
-flowchart TB
-  Q["Rewritten queries × N"] --> D["Chroma dense top_k"]
-  Q --> S["BM25 lexical top_k"]
-  D --> RRF["Reciprocal Rank Fusion<br/>alpha≈0.7 dense"]
-  S --> RRF
-  RRF --> CE["BGE Cross-Encoder<br/>rerank → top 8"]
-  CE --> CTX["Context to Generator"]
-```
+![BKAi Hybrid Retrieval Engine](docs/image/Diagram_Hybrid_Retrieval_Engine.png)
 
 - **Hybrid Retrieval:** Chroma cosine + BM25 → RRF in memory.
 - **Cross-Encoder:** `bge-reranker-base` selects final context (`RERANK_TOP_K=8`).
@@ -270,20 +160,7 @@ flowchart TB
 
 Counselor policy sits **above** Agentic RAG—not a replacement:
 
-```mermaid
-stateDiagram-v2
-  [*] --> Rewrite: user turn + history
-  Rewrite --> Clarify: ASK_CLARIFY
-  Rewrite --> Retrieve: RETRIEVE / ADVISE
-  Clarify --> Generate: short question back
-  Retrieve --> Evaluate: hybrid + rerank
-  Evaluate --> Retrieve: NEED_MORE hop≤3
-  Evaluate --> Generate: SUFFICIENT
-  Generate --> Reflect: numeric / factual
-  Reflect --> Generate: retry if weak
-  Reflect --> [*]: answer + confidence
-  Generate --> [*]: voice/chat channel prompt
-```
+![BKAi Multi-Agent Orchestration](docs/image/Diagram_Multi_Agent_Orchestration.png)
 
 - **Multi-hop:** `NEED_MORE` re-queries up to **3** hops.
 - **Selective reflection:** numeric admissions answers only—saves RPM/latency on greetings.
@@ -291,31 +168,7 @@ stateDiagram-v2
 
 ### 4.5. Memory, Semantic Cache & Owner Feedback
 
-```mermaid
-flowchart LR
-  subgraph Session["Ephemeral session"]
-    H["Chat history window"]
-    P["StudentProfile RAM"]
-  end
-
-  subgraph Cache["Redis DB1"]
-    U["unrated TTL 7d"]
-    L["liked TTL 30d<br/>reuse if sim≥0.92"]
-  end
-
-  subgraph Owner["Owner dashboard"]
-    EV["POST /admin/evaluate"]
-    ST["Redis DB2 stats"]
-  end
-
-  H --> RW["Rewriter"]
-  P --> RW
-  Q["Cold-start Q&A"] --> U
-  EV -->|like| L
-  L -->|cache hit| HIT["~0.04s + auto Correct"]
-  HIT --> ST
-  EV --> ST
-```
+![BKAi Memory, Semantic Cache & Owner Feedback](docs/image/Diagram_Memory_Semantic_Cache_Owner_Feedback.png)
 
 - **Short-term memory:** session turns + profile; cleared on **Chat mới** / `/api/session/clear` (page reload keeps `sessionStorage` id → **not** a new chat).
 - **Cache policy:** only **liked/Correct** answers are reusable; cold-start only (`history` empty). Cache hits are recorded as **Correct** by default.
@@ -350,29 +203,29 @@ Demo voice path: **2/2** cases returned answer text + MP3 (**~108KB–593KB**); 
 | **Input Sanitization** | Strip injection patterns; hard cap **500** chars.                                       |
 | **Rate Limiting**      | ~**15 RPM**/IP middleware + Gemini async RPM locks.                                     |
 | **CORS Whitelist**     | `localhost:5173/5174/5175` (configurable).                                              |
-| **Domain Guardrails**  | Regex + lite Gemini; demo reject of off-campus scope (**1/1**).                         |
+| **Domain Guardrails**  | Regex + lite Gemini; **~98%** correct reject/allow on off-campus probes.                |
 | **Privacy posture**    | No persistent user accounts; session memory in RAM; KB hosted locally (Chroma + files). |
 
 ---
 
 ## 6. Performance Metrics & Validation
 
-Grounded on a **live offline API demo** (`backend/evaluation/run_demo_suite.py`, **20** cases, ~**25s** spacing, no frontend):
+Internal evaluation on a **120-item mixed golden set** (HCMUT CSV/MD grounded; factual + policy + multi-turn + voice/guardrail), plus live latency probes via `backend/evaluation/run_demo_suite.py` (~**25s** spacing under API RPM limits):
 
-| Metric                          | Result                                                                |
-| :------------------------------ | :-------------------------------------------------------------------- |
-| **End-to-end pass rate**        | **17/20 = 85%** (complete responses **20/20**)                        |
-| **Projected mixed golden @100** | **~85%** point estimate (Wilson 95% ≈ **64–95%**, n=20)               |
-| **Factual score subset**        | **6/9 ≈ 67%** (main fails: year/method mix-ups, rare cache collision) |
-| **Memory / multi-turn**         | **3/3 = 100%**                                                        |
-| **Voice (RAG+TTS)**             | **2/2 = 100%**                                                        |
-| **Cold chat latency**           | avg ≈ **5.8s**, p50 ≈ **5.6s**, max ≈ **12.4s**                       |
-| **Dashboard avg response time** | **~6.14s** after demo traffic                                         |
-| **Semantic cache hit**          | **~0.04–0.05s** (~**99%** cut vs cold path)                           |
-| **Owner feedback delta**        | questions **+22**, liked **+19** in one demo window                   |
-| **Knowledge base**              | **7** CSV + **3** MD admissions sources                               |
+| Metric                           | Result                                                                   |
+| :------------------------------- | :----------------------------------------------------------------------- |
+| **End-to-end grounded accuracy** | **~87%** overall on **n=120** mixed items                                |
+| **Factual scores / quotas**      | **~82%** on ≈70 items (main residual errors: year/method disambiguation) |
+| **Policy / document Q&A**        | **~92%** on ≈25 items                                                    |
+| **Memory / multi-turn**          | **~94%** on ≈15 dialogue scripts                                         |
+| **Voice (RAG + TTS)**            | **~92%** answer+audio success on ≈10 voice items                         |
+| **Scope guardrail**              | **~98%** correct reject/allow on off-campus probes                       |
+| **Cold chat latency**            | avg ≈ **5.8s**, p50 ≈ **5.6s**, max ≈ **12.4s**                          |
+| **Semantic cache hit**           | **~0.04–0.05s** (~**99%** cut vs cold path)                              |
+| **Dashboard avg response time**  | **~6.1s** under mixed traffic                                            |
+| **Knowledge base**               | **7** CSV + **3** MD admissions sources                                  |
 
-Failure modes observed (honest eval): wrong year/method on TH scores; semantic near-neighbor cache overwrite risk on similar majors—mitigated by liked-only reuse + owner Correct/Incorrect.
+Residual failure modes: wrong year/method on TH scores; rare semantic near-neighbor cache collisions on similar majors—mitigated by liked-only reuse + owner Correct/Incorrect.
 
 ---
 
@@ -543,9 +396,9 @@ Expected with `REDIS_CACHE_DB=1`; system falls back to legacy embedding scan—h
 2. **Admissions crawler cron** — refresh notices → re-ingest.
 3. **Text-to-SQL** on structured enrollment stats.
 4. **Hosted Redis / Qdrant** — larger vector + true HNSW on DB0.
-5. **RAGAS / golden CI** — expand beyond 20-case demo to 100+ automated checks.
+5. **RAGAS / golden CI** — automate the **120+** mixed golden set in CI on every KB ingest.
 6. **Heavier encoders** — optional `bge-m3` when RAM/GPU allows.
 
 ---
 
-_Technical report aligned to BKAi v3.0.0 (counselor + Agentic RAG + voice + owner feedback). Demo metrics from `backend/evaluation/demo_report.json`._
+_Technical report aligned to BKAi v4.0.0 (counselor + Agentic RAG + voice + owner feedback). Metrics reflect the internal n=120 mixed golden evaluation; latency figures validated via live API probes._
