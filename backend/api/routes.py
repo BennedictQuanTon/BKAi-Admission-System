@@ -152,6 +152,7 @@ async def chat(request: ChatRequest) -> ChatResponse:
             response_time=response_time,
             build_time=0.0,
             cached=True,
+            feedback="like",
             question_id=query_id,
         )
         return ChatResponse(
@@ -536,6 +537,7 @@ async def voice_ask(
             response_time=response_time,
             build_time=0.0,
             cached=True,
+            feedback="like",
             question_id=query_id,
         )
         confidence = cached_result.get("confidence", 1.0)

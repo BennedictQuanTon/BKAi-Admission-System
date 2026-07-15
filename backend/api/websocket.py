@@ -160,7 +160,15 @@ async def websocket_chat(websocket: WebSocket):
                         "response_time": round(response_time, 3),
                     },
                 })
-                record_question(query, cached["answer"], response_time, 0.0, cached=True, question_id=query_id)
+                record_question(
+                    query,
+                    cached["answer"],
+                    response_time,
+                    0.0,
+                    cached=True,
+                    feedback="like",
+                    question_id=query_id,
+                )
                 continue
 
             stream_progress(
