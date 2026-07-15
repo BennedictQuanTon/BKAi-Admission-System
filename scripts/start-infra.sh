@@ -3,28 +3,27 @@ set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 
-echo "🚀 Starting BkAI infrastructure..."
+echo "Starting BkAI infrastructure (Redis Stack)..."
 
 if ! docker info >/dev/null 2>&1; then
-  echo "❌ Docker is not running. Please start Docker Desktop first."
+  echo "Docker is not running. Start Docker Desktop first."
   exit 1
 fi
 
-docker rm -f bkai-qdrant bkai-redis-stack 2>/dev/null || true
+# Prefer existing compose service name; fall back to a standalone container.
+if docker compose -f "$ROOT/docker-compose.yml" ps --status running 2>/dev/null | grep -q bkai-redis; then
+  echo "bkai-redis already running via docker compose"
+elif docker start bkai-redis >/dev/null 2>&1; then
+  echo "Started existing container: bkai-redis"
+else
+  docker rm -f bkai-redis bkai-redis-stack local-redis 2>/dev/null || true
+  docker run -d --name bkai-redis -p 6380:6379 redis/redis-stack-server:latest
+  echo "Created bkai-redis on localhost:6380"
+fi
 
-docker run -d --name bkai-qdrant \
-  -p 6333:6333 -p 6334:6334 \
-  -v "$ROOT/backend/.qdrant:/qdrant/storage" \
-  qdrant/qdrant:latest
-
-docker run -d --name bkai-redis-stack \
-  -p 6380:6379 \
-  redis/redis-stack-server:latest
-
-echo "✅ Qdrant:    http://localhost:6333"
-echo "✅ Redis Stack: redis://localhost:6380"
+echo "Redis Stack: redis://localhost:6380"
 echo ""
 echo "Next:"
-echo "  cd backend && source .venv/bin/activate && pip install pypdf python-docx -q && python ingest.py"
+echo "  cd backend && source .venv/bin/activate && python ingest.py   # ChromaDB + BM25"
 echo "  python main.py"
 echo "  cd frontend && npm run dev"

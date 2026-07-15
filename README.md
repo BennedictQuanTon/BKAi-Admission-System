@@ -146,10 +146,8 @@ bkai2/
 │   ├── agents/         # LangGraph nodes + LiveKit voice worker (voice_livekit.py)
 │   ├── api/            # REST routes, WebSocket, schemas
 │   ├── config/         # Pydantic settings + prompts
-│   ├── data/           # Knowledge base
-│   │   ├── csv/        # 7 admission score/quota tables
-│   │   ├── raw/        # 3 Markdown policy docs
-│   │   ├── pdf/ · docx/ · processed/
+│   ├── data/           # KB layout tracked via .gitkeep; content gitignored (local only)
+│   │   ├── csv/ · raw/ · pdf/ · docx/ · processed/
 │   ├── evaluation/     # Golden set, counselor dialogues, demo suite + report
 │   ├── ingestion/      # Loader → tagger → chunker → embedder
 │   ├── memory/         # Chroma, Redis semantic cache, conversation memory

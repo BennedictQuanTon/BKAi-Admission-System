@@ -50,12 +50,18 @@ dashboard/.env
 dashboard/.env.*
 !dashboard/.env.example
 
-# ===== Data Files (SENSITIVE — raw knowledge base, do NOT leak) =====
-backend/data/raw/
-backend/data/csv/
-backend/data/pdf/
-backend/data/docx/
-backend/data/processed/
+# ===== Knowledge base (SENSITIVE — do NOT commit raw admissions data) =====
+# Keep folder layout via .gitkeep; ignore all real content.
+backend/data/raw/*
+!backend/data/raw/.gitkeep
+backend/data/csv/*
+!backend/data/csv/.gitkeep
+backend/data/pdf/*
+!backend/data/pdf/.gitkeep
+backend/data/docx/*
+!backend/data/docx/.gitkeep
+backend/data/processed/*
+!backend/data/processed/.gitkeep
 
 # ===== Binary / Pickle artifacts (generated, large) =====
 *.pkl
@@ -67,6 +73,7 @@ backend/data/processed/
 backend/.qdrant/
 backend/memory/vector_db/
 backend/memory/redis_data/
+backend/temp_audio/
 
 # ===== Node.js =====
 node_modules/
@@ -75,13 +82,14 @@ dist/
 .cache/
 *.tsbuildinfo
 
-# ===== Logs =====
+# ===== Logs / local eval runs =====
 *.log
 logs/
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
+backend/evaluation/demo_run.log
 
 # ===== Docker overrides (local-only) =====
 docker-compose.override.yml
@@ -90,12 +98,12 @@ docker-compose.local.yml
 # ===== Misc =====
 *.bak
 *.tmp
-*.swp
 coverage/
 .pytest_cache/
 .mypy_cache/
 .ruff_cache/
 htmlcov/
+test.mp3
 
-#===== Voice Agent =====
-Voice_Agent_Images
+# ===== Local reference assets (not part of product) =====
+Voice_Agent_Images/
