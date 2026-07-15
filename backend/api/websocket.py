@@ -53,6 +53,11 @@ async def websocket_chat(websocket: WebSocket):
 
             query = sanitize_input(data.get("query", ""))
             session_id = data.get("session_id", "default")
+            channel = data.get("channel", "chat")
+            if channel not in {"chat", "voice"}:
+                channel = "chat"
+            memory = get_conversation_memory()
+            history = memory.get_history(session_id)
 
             if not query:
                 await websocket.send_json({"type": "error", "message": "Empty query"})
@@ -96,6 +101,8 @@ async def websocket_chat(websocket: WebSocket):
                     message=f"Processing terminated by guardrails in {response_time:.2f}s.",
                     elapsed=round(response_time, 3),
                 )
+                memory.add_turn(session_id, "user", query)
+                memory.add_turn(session_id, "assistant", guard.rejection_message)
                 await websocket.send_json({
                     "type": "done",
                     "answer": guard.rejection_message,
@@ -124,7 +131,7 @@ async def websocket_chat(websocket: WebSocket):
                 message="Checking semantic cache for existing answers...",
             )
 
-            cached = check_cache(query)
+            cached = check_cache(query) if not history else None
             if cached:
                 response_time = time.time() - t0
                 stream_progress(
@@ -142,6 +149,8 @@ async def websocket_chat(websocket: WebSocket):
                     message=f"Query resolved using cache in {response_time:.2f}s.",
                     elapsed=round(response_time, 3),
                 )
+                memory.add_turn(session_id, "user", query)
+                memory.add_turn(session_id, "assistant", cached["answer"])
                 await websocket.send_json({
                     "type": "done",
                     "answer": cached["answer"],
@@ -151,7 +160,15 @@ async def websocket_chat(websocket: WebSocket):
                         "response_time": round(response_time, 3),
                     },
                 })
-                record_question(query, cached["answer"], response_time, 0.0, cached=True, question_id=query_id)
+                record_question(
+                    query,
+                    cached["answer"],
+                    response_time,
+                    0.0,
+                    cached=True,
+                    feedback="like",
+                    question_id=query_id,
+                )
                 continue
 
             stream_progress(
@@ -171,7 +188,12 @@ async def websocket_chat(websocket: WebSocket):
 
             try:
                 await websocket.send_json({"type": "status", "message": "Đang viết câu trả lời..."})
-                result = await run_agent_pipeline(query=query, session_id=session_id, query_id=query_id)
+                result = await run_agent_pipeline(
+                    query=query,
+                    session_id=session_id,
+                    query_id=query_id,
+                    channel=channel,
+                )
             except Exception as e:
                 logger.error("ws_pipeline_error", error=str(e))
                 stream_progress(
@@ -209,16 +231,18 @@ async def websocket_chat(websocket: WebSocket):
                     "timings": result.get("timings", {}),
                     "response_time": round(response_time, 3),
                     "retrieval_hops": result.get("retrieval_hops", 0),
+                    "counselor_action": result.get("counselor_action", ""),
                 },
             })
 
-            store_in_cache(
-                query=query,
-                answer=result["answer"],
-                confidence=result.get("confidence", 0.0),
-                timings=result.get("timings"),
-                sources=result.get("sources"),
-            )
+            if not history and result.get("counselor_action") != "ASK_CLARIFY":
+                store_in_cache(
+                    query=query,
+                    answer=result["answer"],
+                    confidence=result.get("confidence", 0.0),
+                    timings=result.get("timings"),
+                    sources=result.get("sources"),
+                )
             record_question(
                 query=query,
                 answer=result["answer"],

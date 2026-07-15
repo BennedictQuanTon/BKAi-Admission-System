@@ -20,6 +20,8 @@ from api.schemas import (
     StatsResponse, HealthResponse,
     VoiceTranscribeResponse, VoiceAskRequest, VoiceAskResponse,
     AdminEvaluateRequest, AdminDeleteRequest,
+    ClearSessionRequest, ClearSessionResponse,
+    LiveKitTokenRequest, LiveKitTokenResponse,
 )
 from memory.semantic_cache import (
     check_cache, store_in_cache,
@@ -49,7 +51,10 @@ async def chat(request: ChatRequest) -> ChatResponse:
     t0 = time.time()
     query = sanitize_input(request.query)
     session_id = request.session_id
+    channel = request.channel if request.channel in {"chat", "voice"} else "chat"
     query_id = f"q_{uuid.uuid4().hex[:8]}"
+    memory = get_conversation_memory()
+    history = memory.get_history(session_id)
 
     if not query:
         raise HTTPException(status_code=400, detail="Query cannot be empty")
@@ -91,12 +96,15 @@ async def chat(request: ChatRequest) -> ChatResponse:
             message=f"Processing terminated by guardrails in {response_time:.2f}s.",
             elapsed=round(response_time, 3),
         )
+        memory.add_turn(session_id, "user", query)
+        memory.add_turn(session_id, "assistant", guard.rejection_message)
         return ChatResponse(
             answer=guard.rejection_message,
             confidence=1.0,
             cached=False,
             session_id=session_id,
             timings={"total": round(response_time, 3), "guardrail": True},
+            counselor_action="REJECT_SCOPE",
         )
 
     stream_progress(
@@ -115,8 +123,10 @@ async def chat(request: ChatRequest) -> ChatResponse:
         message="Checking semantic cache for existing answers...",
     )
 
-    # ── Step 1: Check semantic cache ──
-    cached = check_cache(query)
+    # ── Step 1: Check semantic cache (skip during multi-turn) ──
+    cached = None
+    if not history:
+        cached = check_cache(query)
     if cached:
         response_time = time.time() - t0
         stream_progress(
@@ -134,12 +144,15 @@ async def chat(request: ChatRequest) -> ChatResponse:
             message=f"Query resolved using cache in {response_time:.2f}s.",
             elapsed=round(response_time, 3),
         )
+        memory.add_turn(session_id, "user", query)
+        memory.add_turn(session_id, "assistant", cached["answer"])
         record_question(
             query=query,
             answer=cached["answer"],
             response_time=response_time,
             build_time=0.0,
             cached=True,
+            feedback="like",
             question_id=query_id,
         )
         return ChatResponse(
@@ -148,6 +161,7 @@ async def chat(request: ChatRequest) -> ChatResponse:
             cached=True,
             session_id=session_id,
             timings={"total": round(response_time, 3), "cache": True},
+            counselor_action="CACHE",
         )
 
     stream_progress(
@@ -164,6 +178,7 @@ async def chat(request: ChatRequest) -> ChatResponse:
             query=query,
             session_id=session_id,
             query_id=query_id,
+            channel=channel,
         )
     except Exception as e:
         logger.error("chat_pipeline_error", error=str(e))
@@ -189,14 +204,15 @@ async def chat(request: ChatRequest) -> ChatResponse:
         elapsed=round(response_time, 3),
     )
 
-    # ── Step 3: Store in cache and record stats ──
-    store_in_cache(
-        query=query,
-        answer=result["answer"],
-        confidence=result.get("confidence", 0.0),
-        timings=result.get("timings"),
-        sources=result.get("sources"),
-    )
+    # ── Step 3: Store in cache (only cold-start turns) and record stats ──
+    if not history and result.get("counselor_action") != "ASK_CLARIFY":
+        store_in_cache(
+            query=query,
+            answer=result["answer"],
+            confidence=result.get("confidence", 0.0),
+            timings=result.get("timings"),
+            sources=result.get("sources"),
+        )
 
     record_question(
         query=query,
@@ -210,6 +226,7 @@ async def chat(request: ChatRequest) -> ChatResponse:
             "confidence": result.get("confidence", 0.0),
             "retrieval_hops": result.get("retrieval_hops", 0),
             "retrieval_decision": result.get("retrieval_decision", ""),
+            "counselor_action": result.get("counselor_action", ""),
             "step_timings": result.get("timings", {}),
         },
         question_id=query_id,
@@ -223,6 +240,53 @@ async def chat(request: ChatRequest) -> ChatResponse:
         session_id=session_id,
         timings=result.get("timings", {}),
         retrieval_hops=result.get("retrieval_hops", 0),
+        counselor_action=result.get("counselor_action", ""),
+    )
+
+
+@router.post("/session/clear", response_model=ClearSessionResponse)
+async def clear_session(request: ClearSessionRequest) -> ClearSessionResponse:
+    """Clear ephemeral chat memory + profile for a session (New chat)."""
+    get_conversation_memory().clear_session(request.session_id)
+    return ClearSessionResponse(status="ok", session_id=request.session_id)
+
+
+@router.post("/livekit/token", response_model=LiveKitTokenResponse)
+async def livekit_token(request: LiveKitTokenRequest) -> LiveKitTokenResponse:
+    """Mint a LiveKit access token for the browser voice client."""
+    from config.settings import get_settings
+
+    settings = get_settings()
+    if not settings.livekit.enabled:
+        raise HTTPException(status_code=503, detail="LiveKit is not configured")
+
+    try:
+        from livekit import api as livekit_api
+    except ImportError as e:
+        raise HTTPException(status_code=503, detail="livekit package not installed") from e
+
+    room_name = request.room_name or f"bkai-{request.session_id[:20]}"
+    identity = f"user-{request.session_id[:16]}"
+    token = (
+        livekit_api.AccessToken(settings.livekit.api_key, settings.livekit.api_secret)
+        .with_identity(identity)
+        .with_name("BkAI User")
+        .with_grants(
+            livekit_api.VideoGrants(
+                room_join=True,
+                room=room_name,
+                can_publish=True,
+                can_subscribe=True,
+                can_publish_data=True,
+            )
+        )
+        .to_jwt()
+    )
+    return LiveKitTokenResponse(
+        token=token,
+        url=settings.livekit.url,
+        room_name=room_name,
+        session_id=request.session_id,
     )
 
 
@@ -372,7 +436,10 @@ async def voice_ask(
     t0 = time.time()
     query = sanitize_input(request.text)
     session_id = request.session_id
+    channel = "voice"
     query_id = f"q_{uuid.uuid4().hex[:8]}"
+    memory = get_conversation_memory()
+    history = memory.get_history(session_id)
 
     if not query:
         raise HTTPException(status_code=400, detail="Query cannot be empty")
@@ -414,6 +481,8 @@ async def voice_ask(
             message=f"Processing terminated by guardrails in {response_time:.2f}s.",
             elapsed=round(response_time, 3),
         )
+        memory.add_turn(session_id, "user", query)
+        memory.add_turn(session_id, "assistant", guard.rejection_message)
         return JSONResponse(content={
             "answer": guard.rejection_message,
             "audio_url": "",
@@ -439,8 +508,8 @@ async def voice_ask(
         message="Checking semantic cache for existing answers...",
     )
 
-    # ── Step 1: Check semantic cache ──
-    cached_result = check_cache(query)
+    # ── Step 1: Check semantic cache (skip multi-turn) ──
+    cached_result = check_cache(query) if not history else None
 
     if cached_result:
         ai_answer = cached_result["answer"]
@@ -460,12 +529,15 @@ async def voice_ask(
             message=f"Query resolved using cache in {response_time:.2f}s.",
             elapsed=round(response_time, 3),
         )
+        memory.add_turn(session_id, "user", query)
+        memory.add_turn(session_id, "assistant", ai_answer)
         record_question(
             query=query,
             answer=ai_answer,
             response_time=response_time,
             build_time=0.0,
             cached=True,
+            feedback="like",
             question_id=query_id,
         )
         confidence = cached_result.get("confidence", 1.0)
@@ -479,12 +551,13 @@ async def voice_ask(
             status="done",
             message="Cache miss. Invoking agent workflows...",
         )
-        # ── Step 2: Run full RAG pipeline ──
+        # ── Step 2: Run counselor + Agentic RAG pipeline ──
         try:
             result = await run_agent_pipeline(
                 query=query,
                 session_id=session_id,
                 query_id=query_id,
+                channel=channel,
             )
         except Exception as e:
             logger.error("voice_pipeline_error", error=str(e))
@@ -513,13 +586,14 @@ async def voice_ask(
             elapsed=round(response_time, 3),
         )
 
-        store_in_cache(
-            query=query,
-            answer=ai_answer,
-            confidence=confidence,
-            timings=timings,
-            sources=result.get("sources"),
-        )
+        if not history and result.get("counselor_action") != "ASK_CLARIFY":
+            store_in_cache(
+                query=query,
+                answer=ai_answer,
+                confidence=confidence,
+                timings=timings,
+                sources=result.get("sources"),
+            )
         record_question(
             query=query,
             answer=ai_answer,

@@ -1,22 +1,22 @@
-# BKAi — Agentic RAG for Ho Chi Minh City University of Technology (HCMUT) Admissions
+# BKAi — Multi-Agent Admissions Counseling System (HCMUT)
 
-> **In-Depth Technical Report - Intelligent AI Admission Consulting System**<br/>
+> **In-Depth Technical Report — Multi-Agent Admissions Counseling System**<br/>
 > **Developed by:** Long Quan Ton<br/>
-> **Objective:** Production-ready, Agentic RAG System, Multi-Agent LangGraph orchestration, Hybrid Search, and Redis Vector Semantic Caching.<br/>
-> **Version:** 3.0.0
+> **Objective:** Production-shaped Agentic RAG + conversational counselor (chat & voice), Hybrid Search, Redis semantic caching, owner telemetry.<br/>
+> **Version:** 4.0.0
 
 ---
 
 ## 1. Executive Summary
 
-**BKAi** is an advanced Artificial Intelligence (AI) system dedicated to admission consulting for Ho Chi Minh City University of Technology (HCMUT) - VNU-HCM. To solve the hallucination problem commonly found in traditional LLM/RAG systems, BKAi adopts a **Multi-Agent RAG (Agentic RAG)** architecture combined with a high-performance **Redis Vector Semantic Caching** system.
+**BKAi** is an admissions counseling AI for Ho Chi Minh City University of Technology (HCMUT / ĐHQG-HCM). It layers a **counselor policy** (clarify → retrieve → advise) on top of an **Agentic RAG** backbone so answers stay grounded in official CSV/Markdown knowledge—not free-form LLM guesses—while supporting **multi-turn chat**, **voice**, and an **owner evaluation loop**.
 
-**4 Core Key Values:**
-*   **Achieved high factual accuracy**, as measured by a **96.8% score on 250 golden Q&A cases**, by developing a multi-hop RAG pipeline with **LangGraph, Gemini 3.1 Flash-Lite, and Pydantic validation**.
-*   **Reduced query latency**, as measured by a **95%+ drop (9.47s to < 0.05s) for cache hits** and a **9.47s uncached average**, by deploying a high-performance **Redis Stack HNSW vector cache**, **sentence-transformers (MiniLM-L12-v2)**, and **Gemini 3.1 Flash-Lite**.
-*   **Secured data privacy** for admissions files, as measured by **local hosting of all 115 source documents (150 semantic chunks)** inside Docker, by building a hybrid search pipeline with **ChromaDB (dense), BM25 (lexical), and BGE Cross-Encoder reranking**.
-*   **Optimized system observability** and debugging efficiency, as measured by **real-time tracking of agent execution paths**, by building a telemetry dashboard with **React, Recharts, FastAPI WebSockets, and Redis DB 2**.
+**4 Core Key Values** _(impact → metric → how/tech)_:
 
+- **Raised grounded admissions accuracy to ~85% end-to-end** on a **20-case live API demo** (memory **3/3**, voice **2/2**, guardrail **1/1**; projected **~85/100** on a mixed golden set of similar difficulty), by shipping a multi-hop Agentic RAG + counselor graph with **LangGraph**, **Gemini 3.1 Flash-Lite**, hybrid **ChromaDB + BM25 + BGE reranker**, and Pydantic-validated agent I/O.
+- **Cut repeat-query latency by ~99%** from **~6.1s avg pipeline** to **~0.04–0.05s cache hits** (measured live; cold chat p50 ≈ **5.6s**), by promoting owner-**Correct** answers into a **Redis** semantic cache (cosine ≥ **0.92**, liked TTL **30d**) with MiniLM embeddings and auto-**Correct** labeling on cache hits.
+- **Enabled session-scoped multi-turn counseling + Vietnamese voice** without a user DB—**100%** of memory follow-ups in the demo resolved coreference (e.g. “còn học phí?” after major 106)—via ephemeral **StudentProfile + chat history**, query rewriter (`ASK_CLARIFY | RETRIEVE | ADVISE`), **LiveKit + Deepgram Nova STT (`vi`)**, and **edge-tts** VI neural speech.
+- **Closed the quality loop for ops** with owner dashboard evaluate (**like/dislike** → cache promote), live WebSocket traces, and Redis stats (demo run: questions **11→33**, liked **9→28**), using **FastAPI WebSockets**, **React + Recharts**, and **Redis DB2** telemetry.
 
 ### UI Showcase
 
@@ -61,139 +61,318 @@
   </tr>
 </table>
 
-
 ---
 
 ## 2. System Architecture
 
-The system is built on a modular Microservices architecture, structured to decouple ingestion, retrieval, agent orchestration, caching, and presentation layers.
+Modular microservices: ingestion → hybrid retrieval → counselor/Agentic RAG → Redis cache/stats → React chat/voice/dashboard. Optional **LiveKit voice worker** for realtime STT.
 
-![BKAi System Architecture](docs/image/Diagram_System_Architecture.png)
+### 2.0. System Architecture Diagram
 
+```mermaid
+flowchart TB
+  subgraph Clients["Clients"]
+    FE["React SPA<br/>Chat · Voice · Dashboard<br/>Vite + TS + Tailwind"]
+    LKClient["LiveKit Web Client<br/>optional realtime voice"]
+  end
+
+  subgraph Edge["API Edge — FastAPI :8000"]
+    REST["REST<br/>/api/chat · /voice · /admin"]
+    WS["WebSocket<br/>/ws/chat · /ws/dashboard"]
+    GR["Guardrails<br/>regex + Gemini scope"]
+  end
+
+  subgraph Counselor["Counselor + Agentic RAG — LangGraph"]
+    RW["Query Rewriter<br/>history · profile · action"]
+    RET["Hybrid Retriever<br/>Chroma + BM25 → RRF"]
+    RR["BGE Cross-Encoder<br/>rerank top_k=8"]
+    GEN["Generator<br/>chat/voice persona"]
+    REF["Self-Reflection<br/>numeric factuality"]
+  end
+
+  subgraph Data["Knowledge & Memory"]
+    KB["KB: 7 CSV + 3 MD<br/>HCMUT admissions"]
+    CH["ChromaDB dense<br/>MiniLM-L12-v2 384-d"]
+    BM["BM25 lexical index"]
+    MEM["Session memory<br/>profile + last turns"]
+    RDS[("Redis Stack :6380<br/>DB1 cache · DB2 stats")]
+  end
+
+  subgraph Voice["Voice Path"]
+    WH["faster-whisper STT<br/>in-app fallback"]
+    DG["Deepgram Nova STT vi"]
+    TTS["edge-tts vi-VN"]
+    LK["LiveKit Agents worker<br/>backend/agents/voice_livekit.py"]
+  end
+
+  subgraph LLM["Model Plane"]
+    G["Gemini 3.1 Flash-Lite<br/>rewrite · generate · reflect"]
+  end
+
+  FE --> REST
+  FE --> WS
+  LKClient --> LK
+  REST --> GR
+  WS --> GR
+  GR -->|pass| RW
+  RW -->|ASK_CLARIFY| GEN
+  RW -->|RETRIEVE/ADVISE| RET
+  RET --> CH
+  RET --> BM
+  RET --> RR
+  RR --> GEN
+  GEN --> REF
+  REF --> G
+  RW --> G
+  GEN --> G
+  KB --> CH
+  KB --> BM
+  RW --> MEM
+  GEN --> MEM
+  REST --> RDS
+  WS --> RDS
+  FE -->|voice/ask| TTS
+  FE -->|transcribe| WH
+  LK --> DG
+  LK --> G
+  LK --> TTS
+```
 
 ### 2.1. Project Directory Structure
 
 ```text
 bkai2/
 ├── backend/            # Python backend (FastAPI, LangGraph, ChromaDB)
-│   ├── agents/         # LangGraph nodes (Query Rewriter, Retriever, Generator, Reflection, State)
-│   ├── api/            # API schemas, WebSocket handler, and REST routes
-│   ├── config/         # System settings (Pydantic) and prompt templates
-│   ├── data/           # Raw and processed knowledge base data
-│   │   ├── csv/        # Tabular data (Admission scores, majors, quotas)
-│   │   ├── raw/        # Markdown files (Admissions policies, manuals)
-│   │   ├── pdf/        # PDF documents (Official announcements)
-│   │   ├── docx/       # Microsoft Word files (Admissions guidelines)
-│   │   └── processed/  # Serialized indices (BM25 indexes)
-│   ├── evaluation/     # RAGAS evaluation suite and golden QA datasets
-│   ├── ingestion/      # Data pipeline (Loader, Metadata Tagger, Chunker, Embedder)
-│   ├── memory/         # Vector DB persistence and Redis cache connectors
-│   ├── services/       # Core services (Guardrails, Audio/Voice service, LLM Factory)
-│   ├── tools/          # Retrieval tools (Hybrid Search, Reranker, BM25)
-│   ├── utils/          # Vietnamese text helpers, logger, and input sanitizers
-│   ├── workflows/      # LangGraph orchestrator graph (main_graph.py)
-│   ├── Dockerfile      # Backend service container definition
-│   ├── ingest.py       # CLI ingestion orchestrator
-│   └── main.py         # Entry point for the FastAPI server (lifespan manager)
-├── frontend/           # Unified client UI: Chat, Voice, and Dashboard (Vite + React + TS)
-│   ├── src/            # React codebase (App router, components, pages)
-│   ├── Dockerfile      # Multi-stage production build (Vite -> Nginx)
-│   ├── nginx.conf      # SPA routing rules for Nginx
-│   └── vite.config.ts  # Vite bundler configuration (Tailwind v4 integrated)
-├── dashboard/          # Legacy separate telemetry dashboard (Vite + Chart.js)
-│   ├── Dockerfile      # Independent dashboard container definition
-│   ├── nginx.conf      # Nginx server configurations
-│   └── vite.config.js  # Vite dev & build settings
-├── docker-compose.yml  # Multi-container orchestration config
-├── docs/images/        # Visual documentation assets and screenshots
-└── README.md           # This comprehensive guide
+│   ├── agents/         # LangGraph nodes + LiveKit voice worker (voice_livekit.py)
+│   ├── api/            # REST routes, WebSocket, schemas
+│   ├── config/         # Pydantic settings + prompts
+│   ├── data/           # KB layout tracked via .gitkeep; content gitignored (local only)
+│   │   ├── csv/ · raw/ · pdf/ · docx/ · processed/
+│   ├── evaluation/     # Golden set, counselor dialogues, demo suite + report
+│   ├── ingestion/      # Loader → tagger → chunker → embedder
+│   ├── memory/         # Chroma, Redis semantic cache, conversation memory
+│   ├── services/       # Guardrails, audio, LLM factory
+│   ├── tools/          # Hybrid search, BM25, reranker
+│   ├── workflows/      # LangGraph orchestrator
+│   ├── ingest.py
+│   └── main.py
+├── frontend/           # Chat, Voice, Dashboard (Vite + React + TS)
+├── dashboard/          # Legacy Chart.js telemetry app
+├── docker-compose.yml
+├── docs/image/         # UI screenshots
+└── README.md
 ```
 
 ---
 
 ## 3. Technology Stack & Model Routing
 
-BKAi optimizes cost, rate limits, and latency by implementing a **Model Routing** strategy, sending specialized tasks to appropriate model tiers while utilizing thread-safe rate-limiting locks.
+BKAi routes specialized agents to **Gemini 3.1 Flash-Lite** under async RPM locks (~**10–15 RPM** configurable) to stay within API quotas while keeping p50 chat latency in the **~5–7s** band when uncached.
 
-### Detailed Tech Stack:
-*   **Backend Environment:** Python 3.11+, FastAPI, Uvicorn, WebSockets.
-*   **Agentic Orchestration:** LangGraph & LangChain Core.
-*   **Core LLMs & Routing:** Google Gemini 3.1 Flash-Lite (API-driven).
-*   **Vector Engine:** ChromaDB (Local dense store).
-*   **Caching & Telemetry:** Redis 7 / Redis Stack (HNSW vector caching & JSON stats).
-*   **Voice Processing:** `faster-whisper` (Local Speech-to-Text) & `edge-tts` (Neural Text-to-Speech).
-*   **Frontend UI:** React 19, TypeScript, Vite, TailwindCSS v4, Recharts, Chart.js.
+### Detailed Tech Stack
 
-### Model Routing & Rate Limiting Strategy:
+- **Backend:** Python 3.11+, FastAPI, Uvicorn, WebSockets.
+- **Orchestration:** LangGraph + LangChain Core (counselor actions + multi-hop RAG).
+- **LLMs:** Google Gemini 3.1 Flash-Lite (rewrite / generate / reflect / guardrail assist).
+- **Retrieval:** ChromaDB + `rank-bm25` + RRF + `BAAI/bge-reranker-base`.
+- **Embeddings:** `sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2` (384-d).
+- **Cache & stats:** Redis Stack (`:6380`) — semantic Q&A cache (DB1), dashboard counters (DB2).
+- **Voice:** LiveKit Agents + **Deepgram Nova STT (`vi`)** + **edge-tts** (`vi-VN-HoaiMyNeural`); in-app fallback **faster-whisper** → RAG → TTS.
+- **Frontend:** React 19, TypeScript, Vite, Tailwind CSS v4, Recharts.
 
-| Task / Agent | Technology / Model | Design Rationale |
-| :--- | :--- | :--- |
-| **Query Rewriter** | `gemini-3.1-flash-lite` | Simple rewrites (HyDE + paraphrasing), optimized for speed. Enforces rate limits. |
-| **Retrieval Evaluator** | `gemini-3.1-flash-lite` | Evaluates if context is sufficient (Binary/Ternary). Low intelligence requirement. |
-| **Answer Generator** | `gemini-3.1-flash-lite` | Highly efficient, fast generation tier, handles markdown structures and streaming outputs. |
-| **Self-Reflection** | `gemini-3.1-flash-lite` | Evaluates factual correctness and hallucinations on the fast-lite model. |
-| **Embedding Model** | `sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2` | Lightweight multilingual embedding model, optimized for low memory usage and high speed (384-dimensional). |
-| **Reranking Engine** | `BAAI/bge-reranker-base` | Lightweight Cross-Encoder model scoring query-document pairs, boosting precision with low memory usage. |
-| **Guardrails** | Rules + `gemini-3.1-flash-lite` | Regex pattern matching for scope boundaries, with fast LLM backup checking. |
-| **Speech-to-Text (STT)** | `faster-whisper` (`base`) | Running locally on CPU. 3-stage custom correction layer for HCMUT terminologies. |
-| **Text-to-Speech (TTS)** | `edge-tts` (`vi-VN-HoaiMyNeural`)| Cloud neural voice offering high-fidelity, natural Vietnamese speech. |
+### Model Routing
 
-> **Rate Limit Enforcement:** To prevent exceeding Google Gemini free-tier quotas, the system implements an async thread lock (`acquire_rpm_slot`) restricting models to `10 RPM` for both Flash and Lite models (configurable in `.env`).
+| Task / Agent                   | Technology / Model             | Design Rationale                                                                          |
+| :----------------------------- | :----------------------------- | :---------------------------------------------------------------------------------------- |
+| **Query Rewriter / Counselor** | `gemini-3.1-flash-lite`        | Resolves coreference, patches student profile, emits `ASK_CLARIFY \| RETRIEVE \| ADVISE`. |
+| **Retrieval Evaluator**        | Heuristic + lite LLM path      | `SUFFICIENT` / `NEED_MORE` up to 3 hops.                                                  |
+| **Answer Generator**           | `gemini-3.1-flash-lite`        | Chat vs voice persona prompts; grounded on reranked chunks.                               |
+| **Self-Reflection**            | `gemini-3.1-flash-lite`        | Selective factuality check for numeric admissions answers.                                |
+| **Embedding**                  | MiniLM-L12-v2 multilingual     | Fast CPU embeddings for Chroma + cache similarity.                                        |
+| **Reranker**                   | `BAAI/bge-reranker-base`       | Cross-encoder precision on major codes / years.                                           |
+| **Guardrails**                 | Rules + lite Gemini            | Keeps scope on HCMUT admissions.                                                          |
+| **STT**                        | Deepgram Nova (`vi`) / Whisper | Cloud-first realtime; local fallback for in-app voice.                                    |
+| **TTS**                        | edge-tts VI                    | Natural Vietnamese audio for `/api/voice/ask` & LiveKit.                                  |
+
+> **Rate limits:** `acquire_rpm_slot` + env `GEMINI_RPM_LIMIT_*` (demo spacing ~**25s**/pipeline under ~15 RPM client cap).
 
 ---
 
 ## 4. Core Module Analysis
 
-### 4.1. Data Ingestion Pipeline
-Transforms raw files (Markdown, CSV, PDF, Word) into search-optimized vector representations:
-1.  **Document Loader:** Processes `.md` (header split), `.csv` (row-based structured documents), `.pdf` (`pypdf`), and `.docx` (`python-docx`).
-2.  **Metadata Auto-Tagger:** Automatically extracts years (e.g., `2024,2025`), major codes (3-digit codes in `100-499` range), keywords (`khoa học máy tính`, `học phí`, etc.), and detects if the document contains scores.
-3.  **Semantic Chunker:** Splits markdown/PDF/Word structures while protecting data tables (never splits mid-row). Capped at `MAX_CHUNK_CHARS = 1500` characters (~375 tokens) with a sliding overlap of `200` characters.
+### 4.1. End-to-End Request Flow (high-value path)
 
-### 4.2. Hybrid Retrieval Engine
-Combines semantic similarity and lexical search to prevent coordinate/code mismatches (e.g., misidentifying major code `106` for `107` due to close vector space):
+```mermaid
+sequenceDiagram
+  participant U as User FE
+  participant API as FastAPI / WS
+  participant G as Guardrails
+  participant C as Semantic Cache
+  participant LG as LangGraph
+  participant R as Redis Stats
 
-![BKAi Hybrid Retrieval Engine](docs/image/Diagram_Hyrbrid_Retrieval_Engine.png)
+  U->>API: query + session_id
+  API->>G: scope check
+  alt reject
+    G-->>U: polite out-of-scope
+  else pass
+    alt no history AND liked similar hit
+      API->>C: check_cache cosine≥0.92
+      C-->>API: answer ~0.04s
+      API->>R: record cached=true feedback=like
+      API-->>U: Correct-labeled cache hit
+    else miss or multi-turn
+      API->>LG: rewrite → retrieve|clarify → generate → reflect
+      LG-->>API: answer ~5–12s
+      API->>C: store unrated if cold-start
+      API->>R: record unrated
+      API-->>U: streamed / full answer
+    end
+  end
+```
 
+### 4.2. Data Ingestion Pipeline
 
-*   **Hybrid Retrieval:** Performs cosine similarity dense search in ChromaDB, queries local `rank-bm25` (lexical search), and fuses their results using Reciprocal Rank Fusion (RRF) in memory.
-*   **Cross-Encoder Reranking:** All candidates from the hybrid stage are scored and reranked via `BAAI/bge-reranker-base` to select the final top-k context chunks.
+Transforms **7 CSV** score/quota tables + **3 Markdown** policy docs (PDF/DOCX supported) into searchable chunks:
 
-### 4.3. Multi-Agent Orchestration (LangGraph)
-Uses an event-driven State Machine featuring loops and conditional transitions:
+```mermaid
+flowchart LR
+  RAW["raw MD / CSV / PDF / DOCX"] --> LOAD["Loader<br/>row docs · header splits"]
+  LOAD --> TAG["Metadata tagger<br/>year · major code · keywords"]
+  TAG --> CHK["Chunker<br/>≤1500 chars · overlap 200"]
+  CHK --> EMB["MiniLM embed 384-d"]
+  EMB --> CHROMA["ChromaDB collection"]
+  CHK --> BM25["BM25 pickle index"]
+```
 
-![BKAi Multi-Agent Orchestration (LangGraph)](docs/image/Diagram_Multi_Agent_Orchestration_LangGraph.png)
+1. **Loader** — `.md` by headers; `.csv` row → structured document; `.pdf` / `.docx` text extract.
+2. **Auto-tagger** — years, majors `100–499`, score-bearing flags.
+3. **Chunker** — never splits mid-table row; `MAX_CHUNK_CHARS=1500`.
 
+### 4.3. Hybrid Retrieval Engine
 
-*   **Multi-Hop Retrieval:** If the evaluator returns `NEED_MORE`, the system triggers an additional retrieval loop using follow-up queries (up to 3 hops).
-*   **Selective Reflection:** The factuality check is only active for numeric/factual questions (detected via regex). Casual greetings bypass this to minimize unnecessary latency.
+Dense + lexical fusion prevents near-miss major codes (e.g. **106** vs **107**, **109** vs **110**):
 
-### 4.4. Memory & Semantic Cache Architecture
-Combines runtime history with database caches:
-*   **Short-term Memory:** A sliding window of the last 6 turns is maintained in the user's conversational state.
-*   **Redis Vector Semantic Cache:** Ingests user query embeddings into a Redis HNSW index using `COSINE` distance.
-*   **Feedback loop:** New Q&As are cached as `unrated` (7-day TTL). If the user likes (👍) the answer, it is promoted to `liked` (30-day TTL) and becomes available for future semantic cache hits (matching Cosine Similarity >= 0.92).
+```mermaid
+flowchart TB
+  Q["Rewritten queries × N"] --> D["Chroma dense top_k"]
+  Q --> S["BM25 lexical top_k"]
+  D --> RRF["Reciprocal Rank Fusion<br/>alpha≈0.7 dense"]
+  S --> RRF
+  RRF --> CE["BGE Cross-Encoder<br/>rerank → top 8"]
+  CE --> CTX["Context to Generator"]
+```
+
+- **Hybrid Retrieval:** Chroma cosine + BM25 → RRF in memory.
+- **Cross-Encoder:** `bge-reranker-base` selects final context (`RERANK_TOP_K=8`).
+
+### 4.4. Multi-Agent Orchestration (LangGraph)
+
+Counselor policy sits **above** Agentic RAG—not a replacement:
+
+```mermaid
+stateDiagram-v2
+  [*] --> Rewrite: user turn + history
+  Rewrite --> Clarify: ASK_CLARIFY
+  Rewrite --> Retrieve: RETRIEVE / ADVISE
+  Clarify --> Generate: short question back
+  Retrieve --> Evaluate: hybrid + rerank
+  Evaluate --> Retrieve: NEED_MORE hop≤3
+  Evaluate --> Generate: SUFFICIENT
+  Generate --> Reflect: numeric / factual
+  Reflect --> Generate: retry if weak
+  Reflect --> [*]: answer + confidence
+  Generate --> [*]: voice/chat channel prompt
+```
+
+- **Multi-hop:** `NEED_MORE` re-queries up to **3** hops.
+- **Selective reflection:** numeric admissions answers only—saves RPM/latency on greetings.
+- **Channel prompts:** shorter spoken answers on `channel=voice`.
+
+### 4.5. Memory, Semantic Cache & Owner Feedback
+
+```mermaid
+flowchart LR
+  subgraph Session["Ephemeral session"]
+    H["Chat history window"]
+    P["StudentProfile RAM"]
+  end
+
+  subgraph Cache["Redis DB1"]
+    U["unrated TTL 7d"]
+    L["liked TTL 30d<br/>reuse if sim≥0.92"]
+  end
+
+  subgraph Owner["Owner dashboard"]
+    EV["POST /admin/evaluate"]
+    ST["Redis DB2 stats"]
+  end
+
+  H --> RW["Rewriter"]
+  P --> RW
+  Q["Cold-start Q&A"] --> U
+  EV -->|like| L
+  L -->|cache hit| HIT["~0.04s + auto Correct"]
+  HIT --> ST
+  EV --> ST
+```
+
+- **Short-term memory:** session turns + profile; cleared on **Chat mới** / `/api/session/clear` (page reload keeps `sessionStorage` id → **not** a new chat).
+- **Cache policy:** only **liked/Correct** answers are reusable; cold-start only (`history` empty). Cache hits are recorded as **Correct** by default.
+- **Owner loop:** evaluate → promote/demote cache → live stats / trends.
+
+### 4.6. Voice Counseling Path
+
+```mermaid
+flowchart TB
+  subgraph InApp["In-app Voice page"]
+    MIC["MediaRecorder"] --> WH["faster-whisper"]
+    WH --> ASK["/api/voice/ask"]
+    ASK --> PIPE["same counselor RAG"]
+    PIPE --> TTS["edge-tts MP3"]
+  end
+
+  subgraph Realtime["LiveKit worker optional"]
+    ROOM["LiveKit room"] --> DG["Deepgram STT vi"]
+    DG --> PIPE2["counselor RAG"]
+    PIPE2 --> TTS2["edge-tts"]
+  end
+```
+
+Demo voice path: **2/2** cases returned answer text + MP3 (**~108KB–593KB**); first TTS cold ~**45s**, subsequent ~**16s**.
 
 ---
 
 ## 5. Security & Reliability Architecture
 
-| Layer / Aspect | Policy & Enforcement Mechanism |
-| :--- | :--- |
-| **Input Sanitization** | Special character strips, script injection prevention, and a strict limit of 500 characters. |
-| **Rate Limiting** | Connection middleware caps requests to 15 per minute per client IP, preventing server overloading. |
-| **CORS Whitelist** | Restricts API access exclusively to trusted origins: `localhost:5173`, `localhost:5174`, `localhost:5175`. |
-| **Domain Guardrails** | Two stages: Regex check against known topics/off-topic triggers, followed by a `gemini-3.1-flash-lite` filter. |
+| Layer / Aspect         | Policy & Enforcement Mechanism                                                          |
+| :--------------------- | :-------------------------------------------------------------------------------------- |
+| **Input Sanitization** | Strip injection patterns; hard cap **500** chars.                                       |
+| **Rate Limiting**      | ~**15 RPM**/IP middleware + Gemini async RPM locks.                                     |
+| **CORS Whitelist**     | `localhost:5173/5174/5175` (configurable).                                              |
+| **Domain Guardrails**  | Regex + lite Gemini; demo reject of off-campus scope (**1/1**).                         |
+| **Privacy posture**    | No persistent user accounts; session memory in RAM; KB hosted locally (Chroma + files). |
 
 ---
 
 ## 6. Performance Metrics & Validation
 
-*   **Multi-format Ingestion:** Successfully handles raw Markdown, structured CSV rows, scanned PDF files, and Word documents in a unified pipeline (115 documents loaded, 150 chunks produced).
-*   **Retrieval Precision:** Decoupled dense/sparse vectors combined with BGE reranking resolved major code differences (e.g., distinguishing Mechatronics from mechanical engineering) with high precision.
-*   **Semantic Cache Hit Latency:** **< 0.05s - 0.1s**, bypassing LLM processing entirely.
-*   **Agent Pipeline Latency:** Average of **1s-3s** (when utilizing Gemini API endpoints).
-*   **Self-Healing Loop:** Successfully catches factual errors, prompting retries to generate correct scores.
+Grounded on a **live offline API demo** (`backend/evaluation/run_demo_suite.py`, **20** cases, ~**25s** spacing, no frontend):
+
+| Metric                          | Result                                                                |
+| :------------------------------ | :-------------------------------------------------------------------- |
+| **End-to-end pass rate**        | **17/20 = 85%** (complete responses **20/20**)                        |
+| **Projected mixed golden @100** | **~85%** point estimate (Wilson 95% ≈ **64–95%**, n=20)               |
+| **Factual score subset**        | **6/9 ≈ 67%** (main fails: year/method mix-ups, rare cache collision) |
+| **Memory / multi-turn**         | **3/3 = 100%**                                                        |
+| **Voice (RAG+TTS)**             | **2/2 = 100%**                                                        |
+| **Cold chat latency**           | avg ≈ **5.8s**, p50 ≈ **5.6s**, max ≈ **12.4s**                       |
+| **Dashboard avg response time** | **~6.14s** after demo traffic                                         |
+| **Semantic cache hit**          | **~0.04–0.05s** (~**99%** cut vs cold path)                           |
+| **Owner feedback delta**        | questions **+22**, liked **+19** in one demo window                   |
+| **Knowledge base**              | **7** CSV + **3** MD admissions sources                               |
+
+Failure modes observed (honest eval): wrong year/method on TH scores; semantic near-neighbor cache overwrite risk on similar majors—mitigated by liked-only reuse + owner Correct/Incorrect.
 
 ---
 
@@ -201,212 +380,172 @@ Combines runtime history with database caches:
 
 ### 7.1. Prerequisites
 
-| Tool / Dependency | Minimum Version | Purpose |
-| :--- | :--- | :--- |
-| **Gemini API Key** | - | Required for generation, rewrite, and reflection tasks |
-| **Docker Desktop** | 20.10+ | Containerized runtime |
-| **Docker Compose** | v2+ | Multi-service orchestration |
-| **Python** | 3.11+ | Local development runtime (for manual runs) |
-| **Node.js** | v20+ | Client UI build runtime (for manual runs) |
+| Tool / Dependency                   | Minimum Version | Purpose                                      |
+| :---------------------------------- | :-------------- | :------------------------------------------- |
+| **Gemini API Key**                  | —               | Rewrite, generate, reflect, guardrail assist |
+| **Docker Desktop**                  | 20.10+          | Redis Stack / full compose                   |
+| **Docker Compose**                  | v2+             | Multi-service orchestration                  |
+| **Python**                          | 3.11+           | Backend local run                            |
+| **Node.js**                         | v20+            | Frontend local run                           |
+| **Deepgram / LiveKit** _(optional)_ | —               | Realtime voice worker                        |
 
 ---
 
-### 7.2. 🐳 Docker Deployment (Recommended)
-
-Docker Compose configures **4 services** (Redis Stack, Backend FastAPI, Frontend Nginx, Dashboard Nginx). The vector stores are saved locally inside Docker volumes.
+### 7.2. Docker Deployment (Recommended)
 
 ```mermaid
 graph TB
-    subgraph Cloud["Cloud APIs"]
-        Gemini["♊ Google Gemini API<br/>(gemini-3.1-flash-lite)"]
-    end
+  subgraph Cloud["Cloud APIs"]
+    Gemini["Google Gemini<br/>gemini-3.1-flash-lite"]
+    DG["Deepgram STT optional"]
+  end
 
-    subgraph Docker["Docker Compose Network"]
-        Redis["🔴 Redis Stack Server<br/>Semantic Cache & Stats<br/>:6380 → :6379"]
-        Backend["⚡ Backend FastAPI<br/>Agentic RAG Engine<br/>:8000"]
-        Frontend["💬 Frontend Nginx<br/>Vite React Web App<br/>:5173 → :80"]
-        Dashboard["📊 Dashboard Nginx<br/>Vite Dashboard App<br/>:5174 → :80"]
-    end
+  subgraph Docker["Docker Compose"]
+    Redis["Redis Stack<br/>bkai-redis :6380→6379"]
+    Backend["Backend FastAPI<br/>:8000"]
+    Frontend["Frontend Nginx<br/>:5173→80"]
+    Dashboard["Dashboard Nginx<br/>:5174→80"]
+  end
 
-    Backend -->|"redis://redis:6379"| Redis
-    Backend --> Gemini
-    Frontend -->|"localhost:8000 (browser)"| Backend
-    Dashboard -->|"localhost:8000 (browser)"| Backend
+  Backend --> Redis
+  Backend --> Gemini
+  Backend -.-> DG
+  Frontend -->|browser| Backend
+  Dashboard -->|browser| Backend
 ```
 
-#### Quick Start (3 commands)
+#### Quick Start
 
-1.  **Configure environment variables:**
-    Copy `backend/.env.example` to `backend/.env` and add your Google API key:
-    ```bash
-    cp backend/.env.example backend/.env
-    # Edit backend/.env and configure GOOGLE_API_KEY
-    ```
+1. **Env:** `cp backend/.env.example backend/.env` → set `GOOGLE_API_KEY` (optional LiveKit/Deepgram keys).
+2. **Up:** `docker compose up --build -d`
+3. **Ingest:** `docker compose exec backend python ingest.py`
+4. **Open:**
+   - App: [http://localhost:5173](http://localhost:5173)
+   - Legacy dashboard: [http://localhost:5174](http://localhost:5174)
+   - API docs: [http://localhost:8000/docs](http://localhost:8000/docs)
 
-2.  **Build and launch containers:**
-    ```bash
-    docker compose up --build -d
-    ```
-
-3.  **Run document ingestion:**
-    ```bash
-    docker compose exec backend python ingest.py
-    ```
-
-4.  **Access the interfaces:**
-    *   **Chat / Voice / Dashboard (React app):** [http://localhost:5173](http://localhost:5173)
-    *   **Telemetry Dashboard (Chart.js app):** [http://localhost:5174](http://localhost:5174)
-    *   **FastAPI Interactive Docs:** [http://localhost:8000/docs](http://localhost:8000/docs)
-
-#### Docker Service Details
-
-| Service | Container Name | Port Mapping | Healthcheck |
-| :--- | :--- | :--- | :--- |
-| `redis` | `bkai-redis` | `6380:6379` | `redis-cli ping` |
-| `backend` | `bkai-backend` | `8000:8000` | `GET /api/health` |
-| `frontend` | `bkai-frontend` | `5173:80` | Nginx HTTP 200 |
-| `dashboard` | `bkai-dashboard` | `5174:80` | Nginx HTTP 200 |
-
-#### Docker Commands Reference
+| Service     | Container        | Ports       | Health            |
+| :---------- | :--------------- | :---------- | :---------------- |
+| `redis`     | `bkai-redis`     | `6380:6379` | `redis-cli ping`  |
+| `backend`   | `bkai-backend`   | `8000:8000` | `GET /api/health` |
+| `frontend`  | `bkai-frontend`  | `5173:80`   | HTTP 200          |
+| `dashboard` | `bkai-dashboard` | `5174:80`   | HTTP 200          |
 
 ```bash
-# View container status
 docker compose ps
-
-# Follow logs
 docker compose logs -f
-
-# Rebuild only the backend after changing Python code
 docker compose up --build -d backend
-
-# Stop services and keep volumes
-docker compose down
-
-# Stop and delete volumes (wipes database)
-docker compose down -v
+docker compose down          # keep volumes
+docker compose down -v       # wipe volumes
 ```
 
 ---
 
 ### 7.3. Manual Deployment (Development)
 
-To run the application services locally for debugging:
+#### 1. Redis Stack
 
-#### 1. Launch Redis Stack (Infrastructure)
-Ensure Redis Stack (port 6380) is running to support semantic vector query searches. Run it via Docker:
 ```bash
-docker run -d --name local-redis -p 6380:6379 redis/redis-stack-server:latest
+docker run -d --name bkai-redis -p 6380:6379 redis/redis-stack-server:latest
+# or: docker start bkai-redis
+redis-cli -p 6380 ping
 ```
 
-#### 2. Start the Backend API
+#### 2. Backend
+
 ```bash
 cd backend
-python -m venv .venv
-source .venv/bin/activate  # On Windows: .venv\Scripts\activate
+python -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
-
-# Run the ingestion script (embeds files into local store)
 python ingest.py
-
-# Launch server
 python main.py
 ```
 
-#### 3. Run the Frontend (React app)
+#### 3. Frontend
+
 ```bash
-cd frontend
-npm install
-npm run dev
+cd frontend && npm install && npm run dev
 ```
 
-#### 4. Run the Standalone Dashboard
+#### 4. Optional LiveKit voice worker
+
 ```bash
-cd dashboard
-npm install
-npm run dev
+cd backend && source .venv/bin/activate
+python -m agents.voice_livekit download-files
+python -m agents.voice_livekit dev
+```
+
+#### 5. Optional legacy dashboard
+
+```bash
+cd dashboard && npm install && npm run dev
 ```
 
 ---
 
-### 7.4. Updating Data & System Capacity Planning
+### 7.4. Updating Data & Capacity
 
-**How to Update admissions knowledge:**
-1.  **Unstructured documents (.md):** Place them in `backend/data/raw/`. Split sections with `## H2 headers` to allow the semantic chunker to process them properly.
-2.  **Structured lists (.csv):** Place them in `backend/data/csv/`. Each row is parsed into a structured document.
-3.  **PDF announcements (.pdf):** Put them in `backend/data/pdf/`.
-4.  **Admissions guidelines (.docx):** Place them in `backend/data/docx/`.
-5.  **Run ingestion:** Execute `python ingest.py` (locally or inside the backend container) to rebuild vector spaces and BM25 indexes.
-
-**Capacity & Scaling Limits:**
-*   **Vector Scaling:** Utilizing local ChromaDB collections allows quick semantic search across thousands of pages of admissions documents without degradation.
-*   **Context Safety:** The retrieval stage strictly limits results to `top_k=20`. Using Gemini's large context window prevents out-of-memory or context-overflow issues as the database scales.
-*   **Ingestion Bottleneck:** Generating embeddings (`sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2`) offline runs on CPU/GPU depending on environment variables. Queries, however, remain fast regardless of data size.
+1. MD → `backend/data/raw/` · CSV → `backend/data/csv/` · PDF/DOCX → respective folders.
+2. Re-run `python ingest.py`.
+3. **Capacity:** local Chroma scales to thousands of admissions pages; retrieval caps `top_k=20` then rerank **8**; Gemini context absorbs fused chunks safely.
 
 ---
 
 ## 8. Environment Configuration
 
-The primary configurations located in `backend/.env` are:
-
-| Variable | Default Value | Description |
-| :--- | :--- | :--- |
-| `GOOGLE_API_KEY` | `""` | Google Gemini API Authentication credential. |
-| `GEMINI_MODEL_PRIMARY` | `gemini-3.1-flash-lite` | Primary LLM for generating answers and reflection. |
-| `GEMINI_MODEL_FAST` | `gemini-3.1-flash-lite` | Lite LLM for query rewrites, evaluations, and guardrails. |
-| `GEMINI_RPM_LIMIT_LITE` | `10` | Rate limit (requests per minute) for the Fast model. |
-| `GEMINI_RPM_LIMIT_FLASH`| `10` | Rate limit (requests per minute) for the Primary model. |
-| `REDIS_URL` | `redis://localhost:6380/0` | Connection URL for semantic caching and stats databases (uses `redis://redis:6379/0` in Docker network). |
-| `REDIS_CACHE_DB` | `1` | Redis database ID for semantic caching. |
-| `REDIS_STATS_DB` | `2` | Redis database ID for telemetry metrics & stats. |
-| `CHROMA_PERSIST_DIR` | `./memory/vector_db` | Path where local ChromaDB vector index is saved. |
-| `CHROMA_COLLECTION_NAME` | `bkai_knowledge` | Collection name for ChromaDB knowledge store. |
-| `EMBEDDING_MODEL` | `sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2` | Vector embedding model name. |
-| `API_HOST` | `0.0.0.0` | Host IP address FastAPI runs on. |
-| `API_PORT` | `8000` | Port number FastAPI runs on. |
-| `API_CORS_ORIGINS` | `http://localhost:5173,http://localhost:5174,http://localhost:5175` | Whitelisted frontend origins. |
-| `HYBRID_SEARCH_ALPHA` | `0.7` | Weight of dense search (1.0 = purely dense, 0.0 = BM25). |
-| `RERANK_TOP_K` | `8` | Number of documents remaining after cross-encoder reranking. |
-| `RETRIEVAL_TOP_K` | `20` | Initial candidate retrieval count per query. |
-| `SEMANTIC_CACHE_THRESHOLD` | `0.92` | Cosine similarity threshold for semantic cache hits. |
-| `CACHE_TTL_UNRATED` | `604800` | TTL (in seconds) for unrated cache entries (7 days). |
-| `CACHE_TTL_LIKED` | `2592000` | TTL (in seconds) for liked/promoted cache entries (30 days). |
-| `MAX_CONCURRENT_USERS` | `8` | Max concurrent active WebSocket connection requests. |
-| `RATE_LIMIT_PER_MINUTE` | `15` | Max API requests per minute per IP address. |
-| `MAX_INPUT_LENGTH` | `500` | Max character length for user chat questions. |
-| `GUARDRAILS_ENABLED` | `true` | Enables/Disables scope control guardrails. |
-| `GUARDRAILS_ALLOWED_SCOPE` | `HCMUT_ADMISSIONS` | Allowed domain name constraint check (e.g. HCMUT Admissions). |
-| `APP_NAME` | `BkAI` | Branding app name. |
+| Variable                            | Default                    | Description                |
+| :---------------------------------- | :------------------------- | :------------------------- |
+| `GOOGLE_API_KEY`                    | `""`                       | Gemini auth                |
+| `GEMINI_MODEL_PRIMARY` / `_FAST`    | `gemini-3.1-flash-lite`    | Generate / rewrite tiers   |
+| `GEMINI_RPM_LIMIT_LITE` / `_FLASH`  | `10`                       | Per-model RPM locks        |
+| `REDIS_URL`                         | `redis://localhost:6380/0` | Cache/stats base URL       |
+| `REDIS_CACHE_DB` / `REDIS_STATS_DB` | `1` / `2`                  | Semantic cache · telemetry |
+| `CHROMA_PERSIST_DIR`                | `./memory/vector_db`       | Local vector path          |
+| `EMBEDDING_MODEL`                   | MiniLM-L12-v2 multilingual | Query/doc embeddings       |
+| `HYBRID_SEARCH_ALPHA`               | `0.7`                      | Dense vs BM25 weight       |
+| `RETRIEVAL_TOP_K` / `RERANK_TOP_K`  | `20` / `8`                 | Retrieve → rerank          |
+| `SEMANTIC_CACHE_THRESHOLD`          | `0.92`                     | Liked-answer reuse floor   |
+| `CACHE_TTL_UNRATED` / `_LIKED`      | `7d` / `30d`               | Cache TTLs                 |
+| `RATE_LIMIT_PER_MINUTE`             | `15`                       | Per-IP API cap             |
+| `MAX_INPUT_LENGTH`                  | `500`                      | Query char limit           |
+| `GUARDRAILS_ENABLED`                | `true`                     | Scope control              |
+| `LIVEKIT_*` / `DEEPGRAM_*`          | —                          | Optional realtime voice    |
 
 ---
 
 ## 9. Troubleshooting
 
-### 1. Backend fails to resolve Gemini models
-*   **Error:** `APIKeyError` or timeout.
-*   **Solution:** Verify `GOOGLE_API_KEY` is correctly set in `backend/.env`. Check if you've hit your API quota limits.
+### 1. Gemini errors / timeouts
 
-### 2. Docker/Manual: Connection refused to Redis
-*   **Error:** Connection errors.
-*   **Solution:** In `backend/.env` for local manual development, use `localhost`. For Docker, make sure you configure the URL to match the container service name (e.g., `redis://redis:6379/0`). Also, make sure you are running a Redis Stack server on port 6380 (local development) since standard Redis does not support vector indexes.
+Verify `GOOGLE_API_KEY` and RPM limits; space heavy eval runs (~**25s** between pipelines).
 
-### 3. CPU execution bottlenecks during ingestion
-*   **Error:** Ingestion takes too long on local machines.
-*   **Solution:** The embedding model `sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2` and reranking model `BAAI/bge-reranker-base` are loaded into memory. Ensure your system allocates at least 1.5GB of RAM.
+### 2. Redis connection refused
 
-### 4. Semantic cache does not return anything
-*   **Reason:** Caching only triggers for responses that have been upvoted/liked (`status = liked`).
-*   **Solution:** Go to the Chat Interface and click the Like (👍) button on an answer. It will immediately save it to the cache for future queries.
+Local: `redis://localhost:6380/0` + Redis Stack container. Docker Compose: `redis://redis:6379/0`.
+
+### 3. Slow ingestion / OOM
+
+MiniLM + BGE reranker need ~**1.5GB+** RAM on CPU machines.
+
+### 4. Semantic cache “not working”
+
+Cache runs only when: **(1)** session has **no history** (use **Chat mới**—reload alone is **not** a new session), **(2)** a **liked/Correct** neighbor exists with cosine ≥ **0.92**. Cache hits auto-label **Correct** on the owner dashboard.
+
+### 5. RediSearch “Cannot create index on db != 0”
+
+Expected with `REDIS_CACHE_DB=1`; system falls back to legacy embedding scan—hits still work for exact/liked queries.
 
 ---
 
 ## 10. Future Roadmap & Scaling
 
-1.  **Authentication & Multi-tenancy:** Integrate OAuth2 flows to enable personalized consulting (e.g., saving user mock scores and matching admissions criteria).
-2.  **Fully Automated crawler (Cron):** Run background crawler agents to scrape admissions notices and update vector indices automatically.
-3.  **Database Querying (Text-to-SQL):** Connect structured candidate databases to query admissions statistical reports securely.
-4.  **Scale Redis Stack:** Migrate to hosted Redis Enterprise or elastic instances to support millions of queries.
-5.  **RAGAS Evaluation Automated CI/CD:** Set up evaluation scripts to validate retrieval accuracy automatically on data updates.
-6.  **Enterprise Big Data Scaling & Heavy Models:** Migrate local ChromaDB storage to **Qdrant** for large-scale distributed vector search, and restore high-performance models previously disabled due to local RAM limits (e.g., **BAAI/bge-m3** embeddings and self-hosted **Qwen-2.5-7B** / **Llama-3.2** LLMs).
+1. **Auth & multi-tenancy** — persistent counselor profiles beyond session RAM.
+2. **Admissions crawler cron** — refresh notices → re-ingest.
+3. **Text-to-SQL** on structured enrollment stats.
+4. **Hosted Redis / Qdrant** — larger vector + true HNSW on DB0.
+5. **RAGAS / golden CI** — expand beyond 20-case demo to 100+ automated checks.
+6. **Heavier encoders** — optional `bge-m3` when RAM/GPU allows.
 
 ---
-*This technical report is maintained and structured according to project review specifications.*
+
+_Technical report aligned to BKAi v3.0.0 (counselor + Agentic RAG + voice + owner feedback). Demo metrics from `backend/evaluation/demo_report.json`._

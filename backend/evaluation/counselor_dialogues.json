@@ -1,0 +1,97 @@
+[
+  {
+    "id": "d01",
+    "title": "Follow-up học phí",
+    "turns": [
+      {"role": "user", "content": "Điểm chuẩn ngành Khoa học Máy tính mã 106 năm gần nhất bao nhiêu?"},
+      {"role": "user", "content": "Còn học phí thì sao?"}
+    ]
+  },
+  {
+    "id": "d02",
+    "title": "Viết tắt KHMT",
+    "turns": [
+      {"role": "user", "content": "KHMT khó vào không?"},
+      {"role": "user", "content": "Xét điểm thi THPT năm gần nhất."}
+    ]
+  },
+  {
+    "id": "d03",
+    "title": "Gợi ý ngành theo điểm",
+    "turns": [
+      {"role": "user", "content": "Mình được khoảng 26 điểm khối A, nên chọn ngành gì ở Bách khoa?"},
+      {"role": "user", "content": "Thiên về máy tính, ngân sách học phí vừa phải."}
+    ]
+  },
+  {
+    "id": "d04",
+    "title": "ĐGNL",
+    "turns": [
+      {"role": "user", "content": "Điều kiện xét ĐGNL ở BK thế nào?"},
+      {"role": "user", "content": "Chưa thi, muốn biết có cần học bạ không."}
+    ]
+  },
+  {
+    "id": "d05",
+    "title": "So sánh chương trình",
+    "turns": [
+      {"role": "user", "content": "Tiêu chuẩn khác tiếng Anh và liên kết quốc tế chỗ nào?"},
+      {"role": "user", "content": "Ưu tiên chi phí thấp trước."}
+    ]
+  },
+  {
+    "id": "d06",
+    "title": "Mechatronics vs Cơ khí",
+    "turns": [
+      {"role": "user", "content": "Mechatronics khác Cơ khí thế nào?"}
+    ]
+  },
+  {
+    "id": "d07",
+    "title": "Học bổng",
+    "turns": [
+      {"role": "user", "content": "BK có học bổng không?"},
+      {"role": "user", "content": "Mình quan tâm học bổng nhập học."}
+    ]
+  },
+  {
+    "id": "d08",
+    "title": "Chỉ tiêu",
+    "turns": [
+      {"role": "user", "content": "Chỉ tiêu tuyển sinh năm gần nhất khoảng bao nhiêu?"},
+      {"role": "user", "content": "Ngành Điện tử viễn thông."}
+    ]
+  },
+  {
+    "id": "d09",
+    "title": "Guardrail trường khác",
+    "turns": [
+      {"role": "user", "content": "So điểm chuẩn BK Hà Nội với BK HCM giúp mình."}
+    ],
+    "expects_reject": true
+  },
+  {
+    "id": "d10",
+    "title": "Voice ngắn học phí",
+    "channel": "voice",
+    "turns": [
+      {"role": "user", "content": "Học phí chương trình tiếng Anh ngành Cơ khí?"}
+    ]
+  },
+  {
+    "id": "d11",
+    "title": "Coreference mã ngành",
+    "turns": [
+      {"role": "user", "content": "Mã ngành 112 là ngành gì?"},
+      {"role": "user", "content": "Ngành đó điểm chuẩn cao không?"}
+    ]
+  },
+  {
+    "id": "d12",
+    "title": "Hỏi nguyện vọng — cần clarify",
+    "turns": [
+      {"role": "user", "content": "Tư vấn giúp mình nên nộp nguyện vọng thế nào."},
+      {"role": "user", "content": "ĐGNL khoảng 900, thích IT."}
+    ]
+  }
+]

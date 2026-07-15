@@ -1,5 +1,10 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { API_BASE, getSessionId } from "../lib/api";
+import {
+  API_BASE,
+  clearServerSession,
+  getSessionId,
+  newSessionId,
+} from "../lib/api";
 
 type VoiceMessage = {
   id: string;
@@ -15,10 +20,10 @@ export default function VoicePage() {
   const [messages, setMessages] = useState<VoiceMessage[]>([]);
   const [state, setState] = useState<"idle" | "recording" | "transcribing" | "thinking" | "speaking">("idle");
   const [status, setStatus] = useState("Nhấn mic để bắt đầu");
+  const [sessionId, setSessionId] = useState(() => getSessionId());
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
   const streamRef = useRef<MediaStream | null>(null);
-  const sessionId = useRef(getSessionId());
 
   const stopStream = () => {
     streamRef.current?.getTracks().forEach((t) => t.stop());
@@ -26,6 +31,16 @@ export default function VoicePage() {
   };
 
   useEffect(() => () => stopStream(), []);
+
+  async function startNewSession() {
+    stopStream();
+    await clearServerSession(sessionId);
+    const sid = newSessionId();
+    setSessionId(sid);
+    setMessages([]);
+    setState("idle");
+    setStatus("Nhấn mic để bắt đầu đoạn tư vấn mới");
+  }
 
   const processRecording = useCallback(async (blob: Blob) => {
     setState("transcribing");
@@ -45,12 +60,12 @@ export default function VoicePage() {
     setMessages((prev) => [...prev, userMsg]);
 
     setState("thinking");
-    setStatus("Đang xử lý câu hỏi...");
+    setStatus("Đang tư vấn...");
 
     const ask = await fetch(`${API_BASE}/api/voice/ask`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ text, session_id: sessionId.current }),
+      body: JSON.stringify({ text, session_id: sessionId, channel: "voice" }),
     });
 
     if (!ask.ok) {
@@ -69,10 +84,10 @@ export default function VoicePage() {
     const audio = new Audio(audioUrl);
     audio.onended = () => {
       setState("idle");
-      setStatus("Nhấn mic để hỏi tiếp");
+      setStatus("Nhấn mic để hỏi tiếp (mình vẫn nhớ đoạn chat này)");
     };
     await audio.play();
-  }, []);
+  }, [sessionId]);
 
   const startRecording = async () => {
     const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
@@ -99,11 +114,17 @@ export default function VoicePage() {
       if (recorder.state !== "recording") return;
       const data = new Uint8Array(analyser.fftSize);
       analyser.getByteTimeDomainData(data);
-      const volume = data.reduce((sum, v) => sum + Math.abs(v - 128), 0) / data.length / 128;
-      if (volume < SILENCE_THRESHOLD) {
-        silenceStart = silenceStart ?? Date.now();
-        if (Date.now() - silenceStart > SILENCE_DURATION_MS) {
+      let sum = 0;
+      for (let i = 0; i < data.length; i++) {
+        const v = (data[i] - 128) / 128;
+        sum += v * v;
+      }
+      const rms = Math.sqrt(sum / data.length);
+      if (rms < SILENCE_THRESHOLD) {
+        if (silenceStart == null) silenceStart = Date.now();
+        else if (Date.now() - silenceStart > SILENCE_DURATION_MS) {
           recorder.stop();
+          ctx.close();
           return;
         }
       } else {
@@ -114,90 +135,60 @@ export default function VoicePage() {
     requestAnimationFrame(tick);
   };
 
-  const handleMic = () => {
-    if (state === "idle") startRecording();
-    else if (state === "recording") mediaRecorderRef.current?.stop();
-  };
-
   return (
-    <div className="max-w-3xl mx-auto px-4 py-8">
-      <h1 className="font-display text-4xl md:text-5xl font-black tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-brand-600 via-indigo-600 to-blue-500 mb-2 text-center">
-        BKAi Voice
-      </h1>
-      <p className="text-slate-500 font-medium text-sm md:text-base text-center mb-10">
-        Hỏi bằng giọng nói về tuyển sinh HCMUT
-      </p>
-
-      <div className="flex flex-col items-center gap-6 mb-12">
-        <div className="relative">
-          {/* Audio wave pulse rings */}
-          {state === "recording" && (
-            <>
-              <div className="absolute inset-0 rounded-full bg-red-500/20 animate-ping" />
-              <div className="absolute -inset-4 rounded-full bg-red-500/10 animate-pulse" />
-            </>
-          )}
-          {state === "speaking" && (
-            <>
-              <div className="absolute inset-0 rounded-full bg-brand-500/20 animate-ping" />
-              <div className="absolute -inset-4 rounded-full bg-brand-500/10 animate-pulse" />
-            </>
-          )}
-          <button
-            type="button"
-            onClick={handleMic}
-            disabled={state === "transcribing" || state === "thinking" || state === "speaking"}
-            className={`relative w-28 h-28 rounded-full text-white text-3xl shadow-xl flex items-center justify-center transition-all duration-300 hover:scale-105 ${
-              state === "recording"
-                ? "bg-gradient-to-tr from-red-600 to-rose-500 shadow-red-500/25"
-                : state === "speaking"
-                ? "bg-gradient-to-tr from-brand-600 to-indigo-600 shadow-brand-500/25"
-                : "bg-gradient-to-tr from-brand-600 to-indigo-600 shadow-brand-500/20 hover:shadow-brand-500/30"
-            }`}
-            aria-label="Microphone"
-          >
-            {state === "recording" ? (
-              <svg className="w-10 h-10 animate-pulse" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M9 10a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 01-1 1h-4a1 1 0 01-1-1v-4z" />
-              </svg>
-            ) : (
-              <svg className="w-10 h-10" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
-              </svg>
-            )}
-          </button>
+    <div className="flex-1 min-h-0 flex flex-col max-w-3xl w-full mx-auto px-4 py-8">
+      <div className="flex items-start justify-between gap-4 mb-6">
+        <div>
+          <h1 className="font-display text-3xl font-bold text-slate-900 mb-2">BKAi Voice</h1>
+          <p className="text-slate-500 text-sm">
+            Tư vấn tuyển sinh bằng giọng nói (Whisper + counselor). Mình nhớ ngữ cảnh trong đoạn này;
+            bấm “Đoạn mới” để xóa.
+          </p>
         </div>
-        <p className="text-brand-600 font-semibold text-xs tracking-wide uppercase px-4 py-1.5 rounded-full bg-brand-50 border border-brand-100/50 animate-pulse" aria-live="polite">
-          {status}
-        </p>
+        <button
+          type="button"
+          onClick={startNewSession}
+          className="shrink-0 text-sm font-semibold text-slate-600 hover:text-brand-700 px-3 py-1.5 rounded-lg border border-slate-200 bg-white"
+        >
+          Đoạn mới
+        </button>
       </div>
 
-      <div className="space-y-4 max-w-2xl mx-auto">
+      <div className="flex-1 overflow-y-auto space-y-3 mb-8">
         {messages.map((msg) => (
-          <div
-            key={msg.id}
-            className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}
-          >
+          <div key={msg.id} className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
             <div
-              className={`max-w-[85%] px-4 py-3.5 shadow-sm transition-all duration-300 ${
+              className={`max-w-[85%] px-4 py-3 rounded-2xl ${
                 msg.role === "user"
-                  ? "bg-gradient-to-tr from-brand-600 via-brand-600 to-indigo-600 text-white rounded-2xl rounded-tr-sm"
-                  : "bg-white/80 backdrop-blur-sm border border-slate-200/60 text-slate-800 rounded-2xl rounded-tl-sm"
+                  ? "bg-brand-600 text-white"
+                  : "bg-white border border-slate-200 text-slate-800"
               }`}
             >
-              <div className={`text-[10px] uppercase tracking-wider mb-1.5 font-bold ${msg.role === "user" ? "text-white/80" : "text-slate-400"}`}>
-                {msg.role === "user" ? "Bạn" : "BKAi"}
-              </div>
-              <p className="text-[15px] leading-relaxed">{msg.text}</p>
+              <p className="text-sm leading-relaxed">{msg.text}</p>
               {msg.audioUrl && (
-                <div className="mt-3.5 pt-3 border-t border-slate-100">
-                  <audio controls src={msg.audioUrl} className="w-full h-8 accent-brand-600" />
-                </div>
+                <audio controls src={msg.audioUrl} className="w-full h-8 accent-brand-600 mt-2" />
               )}
             </div>
           </div>
         ))}
+      </div>
+
+      <div className="flex flex-col items-center gap-3">
+        <button
+          type="button"
+          disabled={state !== "idle"}
+          onClick={startRecording}
+          className={`w-20 h-20 rounded-full flex items-center justify-center text-white shadow-lg transition ${
+            state === "recording"
+              ? "bg-rose-500 animate-pulse"
+              : state === "idle"
+                ? "bg-brand-600 hover:bg-brand-700"
+                : "bg-slate-400"
+          }`}
+        >
+          Mic
+        </button>
+        <p className="text-sm text-slate-500">{status}</p>
       </div>
     </div>
   );

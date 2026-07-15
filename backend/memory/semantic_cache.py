@@ -302,6 +302,11 @@ def record_question(
         r.incr(f"{STATS_PREFIX}total")
         if cached:
             r.incr(f"{STATS_PREFIX}cache_hits")
+        # Cache hits reuse an already-liked answer → mark Correct by default
+        if feedback == "like":
+            r.incr(f"{STATS_PREFIX}liked")
+        elif feedback == "dislike":
+            r.incr(f"{STATS_PREFIX}disliked")
 
         # Track response times
         r.lpush(f"{STATS_PREFIX}response_times", str(response_time))

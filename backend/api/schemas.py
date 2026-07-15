@@ -13,6 +13,7 @@ class ChatRequest(BaseModel):
     """Chat endpoint request."""
     query: str = Field(..., min_length=1, max_length=500, description="User question")
     session_id: str = Field(default="default", max_length=64)
+    channel: str = Field(default="chat", pattern="^(chat|voice)$")
 
 
 class ChatResponse(BaseModel):
@@ -24,6 +25,16 @@ class ChatResponse(BaseModel):
     session_id: str = ""
     timings: dict[str, float] = {}
     retrieval_hops: int = 0
+    counselor_action: str = ""
+
+
+class ClearSessionRequest(BaseModel):
+    session_id: str = Field(..., min_length=1, max_length=64)
+
+
+class ClearSessionResponse(BaseModel):
+    status: str = "ok"
+    session_id: str = ""
 
 
 class FeedbackRequest(BaseModel):
@@ -62,10 +73,23 @@ class VoiceTranscribeResponse(BaseModel):
     duration: float = 0.0
 
 
+class LiveKitTokenRequest(BaseModel):
+    session_id: str = Field(default="voice_default", max_length=64)
+    room_name: str | None = Field(default=None, max_length=128)
+
+
+class LiveKitTokenResponse(BaseModel):
+    token: str
+    url: str
+    room_name: str
+    session_id: str
+
+
 class VoiceAskRequest(BaseModel):
     """Voice ask endpoint request (text from STT → RAG → TTS)."""
     text: str = Field(..., min_length=1, max_length=500, description="Transcribed user question")
     session_id: str = Field(default="voice_default", max_length=64)
+    channel: str = Field(default="voice", pattern="^(chat|voice)$")
 
 
 class VoiceAskResponse(BaseModel):
@@ -82,7 +106,7 @@ class HealthResponse(BaseModel):
     """Health check response."""
     status: str = "healthy"
     service: str = "BkAI"
-    version: str = "1.0.0"
+    version: str = "3.0.0"
 
 
 class AdminEvaluateRequest(BaseModel):

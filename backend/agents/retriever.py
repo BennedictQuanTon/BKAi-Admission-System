@@ -32,7 +32,8 @@ class EvaluateOutput(BaseModel):
 async def retrieve_node(state: AgentState) -> dict:
     t0 = time.time()
     settings = get_settings()
-    queries = list(state.get("rewritten_queries", [state["original_query"]]))
+    resolved = state.get("resolved_query") or state["original_query"]
+    queries = list(state.get("rewritten_queries", [resolved]))
     hyde_doc = state.get("hyde_document", "")
     session_id = state.get("session_id", "")
     query_id = state.get("query_id", "")
@@ -61,8 +62,7 @@ async def retrieve_node(state: AgentState) -> dict:
                 seen_contents.add(key)
                 all_results.append(r)
 
-    original = state["original_query"]
-    reranked = rerank(original, all_results, top_k=settings.search.rerank_top_k)
+    reranked = rerank(resolved, all_results, top_k=settings.search.rerank_top_k)
 
     elapsed = time.time() - t0
     tracer.end("retrieve", results=len(reranked), elapsed=round(elapsed, 2))
