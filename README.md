@@ -16,7 +16,7 @@
 - Raised grounded accuracy to **~87%** end-to-end on an internal **120**-item mixed golden set by shipping a **multi-hop Agentic RAG** and counselor graph with **LangGraph**, **Gemini 3.1 Flash-Lite**, hybrid retrieval engine with **ChromaDB + BM25 + BGE reranker**, and **Pydantic**-validated agent I/O.
 - Cut repeat-query latency by **~99%** from **~6.1s** avg cold pipeline to **~0.04–0.05s** cache hits, by promoting human-validated answers into a **Redis** semantic cache (cosine ≥ **0.92**, validated TTL **30d**) with **MiniLM** embeddings and automatic correctness labeling on cache hits.
 - Delivered multi-turn counseling and Vietnamese voice at **~94%** coreference success on **15** dialogue scripts, without a persistent user database, by combining session-scoped student state, intent-aware query rewriting, **LiveKit + Deepgram** speech recognition, and **edge-tts** neural synthesis.
-- Optimized system observability and debugging efficiency, as measured by real-time tracking of agent execution paths, by building a telemetry dashboard with **React**, **Recharts**, **FastAPI WebSockets**, and **Redis DB 2**.
+- Secured data privacy for admissions files by locally hosting **~115** source documents (**150** semantic chunks; designed headroom to **10k+** chunks) inside **Docker** volumes, keeping embeddings and retrieval indexes fully on-prem with zero third-party document egress.
 
 ### UI Showcase
 
