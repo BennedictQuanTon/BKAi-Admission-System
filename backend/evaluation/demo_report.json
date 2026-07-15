@@ -1,0 +1,565 @@
+{
+  "meta": {
+    "api": "http://127.0.0.1:8000",
+    "gap_sec": 25.0,
+    "n_cases": 20,
+    "passed": 17,
+    "accuracy": 0.85,
+    "projected_accuracy_on_100_golden_pct": 85.0,
+    "projection_note": "Ước lượng tuyến tính từ mẫu 20 case grounded trên KB hiện tại (CSV+MD). Không phải đo thật 100 câu; CI rộng vì n nhỏ.",
+    "latency_sec": {
+      "count": 23,
+      "avg": 7.452,
+      "min": 0.007,
+      "max": 45.34
+    },
+    "memory_pass": 3,
+    "memory_total": 3,
+    "voice_pass": 2,
+    "voice_total": 2,
+    "complete_responses": 20,
+    "dashboard": {
+      "before_total": 11,
+      "before_liked": 9,
+      "after_total": 33,
+      "after_liked": 28,
+      "after_avg_response_time": 6.14,
+      "delta_total": 22,
+      "delta_liked": 19
+    },
+    "marked_correct_count": 16
+  },
+  "results": [
+    {
+      "id": "t01",
+      "type": "factual",
+      "ok": false,
+      "turns": [],
+      "marked_correct": false,
+      "reasons": [
+        "missing_any:85.41|85,41|85.4"
+      ],
+      "elapsed": 12.437,
+      "answer_preview": "Chào bạn, mình là BkAI, rất vui được đồng hành cùng bạn trong hành trình tìm hiểu về Trường Đại học Bách khoa – ĐHQG-HCM!\n\nVề câu hỏi của bạn, điểm chuẩn phương thức **Xét tuyển tổng hợp** (UTXT) năm 2024 của ngành **Kho",
+      "answer_len": 948,
+      "confidence": 0.8,
+      "cached": false,
+      "counselor_action": "RETRIEVE",
+      "question_id": "q_44cf397c",
+      "timings": {
+        "query_rewrite": 1.773,
+        "retrieve": 7.97,
+        "evaluate_results": 0.0,
+        "generate": 1.541,
+        "self_reflect": 1.063,
+        "total": 12.355
+      },
+      "returned_complete": true
+    },
+    {
+      "id": "t02",
+      "type": "factual",
+      "ok": true,
+      "turns": [],
+      "marked_correct": true,
+      "reasons": [],
+      "elapsed": 5.562,
+      "answer_preview": "Chào bạn, mình là BkAI – cố vấn tuyển sinh của Trường Đại học Bách khoa (HCMUT). Rất vui được hỗ trợ bạn tìm hiểu thông tin về trường!\n\nVề câu hỏi của bạn, mình xin chia sẻ thông tin như sau:\n\nTrong năm 2026, chỉ tiêu tu",
+      "answer_len": 957,
+      "confidence": 1.0,
+      "cached": false,
+      "counselor_action": "RETRIEVE",
+      "question_id": "q_c9ce72fe",
+      "timings": {
+        "query_rewrite": 1.757,
+        "retrieve": 1.458,
+        "evaluate_results": 0.0,
+        "generate": 1.561,
+        "self_reflect": 0.688,
+        "total": 5.471
+      },
+      "returned_complete": true
+    },
+    {
+      "id": "t03",
+      "type": "factual",
+      "ok": false,
+      "turns": [],
+      "marked_correct": false,
+      "reasons": [
+        "missing_any:82.91|82,91|82.9"
+      ],
+      "elapsed": 5.465,
+      "answer_preview": "Chào bạn, mình là BkAI, rất vui được hỗ trợ bạn tìm hiểu thông tin tuyển sinh tại Trường Đại học Bách khoa – ĐHQG-HCM.\n\nVề câu hỏi của bạn, điểm chuẩn theo phương thức xét kết quả thi tốt nghiệp THPT (TH) năm 2024 của ng",
+      "answer_len": 939,
+      "confidence": 1.0,
+      "cached": false,
+      "counselor_action": "RETRIEVE",
+      "question_id": "q_7f50ee92",
+      "timings": {
+        "query_rewrite": 1.643,
+        "retrieve": 1.525,
+        "evaluate_results": 0.0,
+        "generate": 1.379,
+        "self_reflect": 0.834,
+        "total": 5.388
+      },
+      "returned_complete": true
+    },
+    {
+      "id": "t04",
+      "type": "factual",
+      "ok": true,
+      "turns": [],
+      "marked_correct": true,
+      "reasons": [],
+      "elapsed": 6.375,
+      "answer_preview": "Chào bạn, mình là BkAI – cố vấn tuyển sinh của Trường Đại học Bách khoa (HCMUT). Rất vui được hỗ trợ bạn tìm hiểu thông tin về trường mình nhé!\n\nVề thắc mắc của bạn đối với mã ngành **112**, mình xin chia sẻ thông tin từ",
+      "answer_len": 1065,
+      "confidence": 0.95,
+      "cached": false,
+      "counselor_action": "RETRIEVE",
+      "question_id": "q_e713d1d5",
+      "timings": {
+        "query_rewrite": 1.775,
+        "retrieve": 1.412,
+        "evaluate_results": 0.0,
+        "generate": 2.056,
+        "self_reflect": 1.051,
+        "total": 6.3
+      },
+      "returned_complete": true
+    },
+    {
+      "id": "t05",
+      "type": "factual",
+      "ok": true,
+      "turns": [],
+      "marked_correct": true,
+      "reasons": [],
+      "elapsed": 5.792,
+      "answer_preview": "Chào bạn, mình là BkAI, rất vui được hỗ trợ bạn tìm hiểu thông tin tuyển sinh tại Trường Đại học Bách khoa – ĐHQG-HCM.\n\nVề câu hỏi của bạn, theo dữ liệu hệ thống, điểm chuẩn ngành **Kỹ thuật Cơ khí (mã ngành 109)** theo ",
+      "answer_len": 1024,
+      "confidence": 1.0,
+      "cached": false,
+      "counselor_action": "RETRIEVE",
+      "question_id": "q_718bc37e",
+      "timings": {
+        "query_rewrite": 1.774,
+        "retrieve": 1.44,
+        "evaluate_results": 0.0,
+        "generate": 1.757,
+        "self_reflect": 0.727,
+        "total": 5.706
+      },
+      "returned_complete": true
+    },
+    {
+      "id": "t06",
+      "type": "factual",
+      "ok": false,
+      "turns": [],
+      "marked_correct": false,
+      "reasons": [
+        "missing_required:110",
+        "missing_any:81.82|81,82|81.8"
+      ],
+      "elapsed": 0.07,
+      "answer_preview": "Chào bạn, mình là BkAI, rất vui được hỗ trợ bạn tìm hiểu thông tin tuyển sinh tại Trường Đại học Bách khoa – ĐHQG-HCM.\n\nVề câu hỏi của bạn, theo dữ liệu hệ thống, điểm chuẩn ngành **Kỹ thuật Cơ khí (mã ngành 109)** theo ",
+      "answer_len": 1024,
+      "confidence": 1.0,
+      "cached": true,
+      "counselor_action": "CACHE",
+      "question_id": "q_83b6f1c9",
+      "timings": {
+        "total": 0.058,
+        "cache": 1.0
+      },
+      "returned_complete": true
+    },
+    {
+      "id": "t07",
+      "type": "factual",
+      "ok": true,
+      "turns": [],
+      "marked_correct": true,
+      "reasons": [],
+      "elapsed": 6.752,
+      "answer_preview": "Chào bạn, mình là BkAI – cố vấn tuyển sinh của Trường Đại học Bách khoa (ĐHQG-HCM). Rất vui được hỗ trợ bạn tìm hiểu thông tin về trường!\n\nVề câu hỏi của bạn, mình xin cung cấp thông tin chính thức từ dữ liệu tuyển sinh ",
+      "answer_len": 1069,
+      "confidence": 1.0,
+      "cached": false,
+      "counselor_action": "RETRIEVE",
+      "question_id": "q_43f17211",
+      "timings": {
+        "query_rewrite": 1.678,
+        "retrieve": 2.009,
+        "evaluate_results": 0.0,
+        "generate": 1.898,
+        "self_reflect": 1.063,
+        "total": 6.656
+      },
+      "returned_complete": true
+    },
+    {
+      "id": "t08",
+      "type": "factual",
+      "ok": true,
+      "turns": [],
+      "marked_correct": true,
+      "reasons": [],
+      "elapsed": 6.062,
+      "answer_preview": "Chào bạn, mình là BkAI – cố vấn tuyển sinh của Trường Đại học Bách khoa (ĐHQG-HCM). Rất vui được hỗ trợ bạn tìm hiểu thông tin về ngành Khoa học Dữ liệu tại trường mình!\n\nDựa trên dữ liệu mình có, dưới đây là thông tin v",
+      "answer_len": 1568,
+      "confidence": 1.0,
+      "cached": false,
+      "counselor_action": "RETRIEVE",
+      "question_id": "q_48474c96",
+      "timings": {
+        "query_rewrite": 1.654,
+        "retrieve": 1.276,
+        "evaluate_results": 0.0,
+        "generate": 2.188,
+        "self_reflect": 0.853,
+        "total": 5.978
+      },
+      "returned_complete": true
+    },
+    {
+      "id": "t09",
+      "type": "doc",
+      "ok": true,
+      "turns": [],
+      "marked_correct": true,
+      "reasons": [],
+      "elapsed": 4.996,
+      "answer_preview": "Chào bạn, mình là BkAI – cố vấn tuyển sinh của Trường Đại học Bách khoa (ĐHQG-HCM). Rất vui được hỗ trợ bạn tìm hiểu thông tin về trường mình!\n\nVề thắc mắc của bạn liên quan đến việc quy đổi điểm chứng chỉ IELTS sang điể",
+      "answer_len": 1474,
+      "confidence": 0.85,
+      "cached": false,
+      "counselor_action": "RETRIEVE",
+      "question_id": "q_341928a2",
+      "timings": {
+        "query_rewrite": 1.572,
+        "retrieve": 1.25,
+        "evaluate_results": 0.0,
+        "generate": 2.055,
+        "self_reflect": 0.001,
+        "total": 4.884
+      },
+      "returned_complete": true
+    },
+    {
+      "id": "t10",
+      "type": "doc",
+      "ok": true,
+      "turns": [],
+      "marked_correct": true,
+      "reasons": [],
+      "elapsed": 5.006,
+      "answer_preview": "Chào bạn, mình là BkAI – cố vấn tuyển sinh của Trường Đại học Bách khoa (ĐHQG-HCM). Rất vui được hỗ trợ bạn tìm hiểu thông tin về trường mình!\n\nVề câu hỏi của bạn, công thức tính điểm cho **Phương thức Xét tuyển Tổng hợp",
+      "answer_len": 1619,
+      "confidence": 0.85,
+      "cached": false,
+      "counselor_action": "RETRIEVE",
+      "question_id": "q_2b05c553",
+      "timings": {
+        "query_rewrite": 1.444,
+        "retrieve": 1.436,
+        "evaluate_results": 0.0,
+        "generate": 2.014,
+        "self_reflect": 0.0,
+        "total": 4.901
+      },
+      "returned_complete": true
+    },
+    {
+      "id": "t11",
+      "type": "guardrail",
+      "ok": true,
+      "turns": [],
+      "marked_correct": false,
+      "reasons": [],
+      "elapsed": 0.007,
+      "answer_preview": "Xin lỗi, **BkAI** chỉ hỗ trợ tư vấn tuyển sinh **Trường Đại học Bách khoa - ĐHQG-HCM (HCMUT)**.\n\nTôi không thể trả lời câu hỏi về trường đại học khác (không phải HCMUT).\n\nBạn có thể hỏi về điểm chuẩn, ngành học, học phí,",
+      "answer_len": 280,
+      "confidence": 1.0,
+      "cached": false,
+      "counselor_action": "REJECT_SCOPE",
+      "question_id": null,
+      "timings": {
+        "total": 0.0,
+        "guardrail": 1.0
+      },
+      "returned_complete": true
+    },
+    {
+      "id": "t12",
+      "type": "memory",
+      "ok": true,
+      "turns": [
+        {
+          "query": "Điểm chuẩn TH 2025 ngành Khoa học Máy tính mã 106?",
+          "ok": true,
+          "reasons": [],
+          "elapsed": 6.386,
+          "answer_preview": "Chào bạn, mình là BkAI – cố vấn tuyển sinh của Trường Đại học Bách khoa – ĐHQG-HCM. Rất vui được hỗ trợ bạn tìm hiểu thông tin về ngành Khoa học Máy tính.\n\nVề câu hỏi của bạn, điểm chuẩn phương thức xét tuyển theo kết qu",
+          "answer_len": 1406,
+          "confidence": 0.95,
+          "question_id": "q_86e0794d",
+          "marked_correct": true,
+          "timings": {
+            "query_rewrite": 1.502,
+            "retrieve": 1.422,
+            "evaluate_results": 0.0,
+            "generate": 2.142,
+            "self_reflect": 1.197,
+            "total": 6.272
+          },
+          "returned_complete": true
+        },
+        {
+          "query": "Còn học phí chương trình đó thì sao?",
+          "ok": true,
+          "reasons": [],
+          "elapsed": 5.792,
+          "answer_preview": "Chào bạn, mình là BkAI – cố vấn tuyển sinh của Trường Đại học Bách khoa – ĐHQG-HCM. Rất vui được hỗ trợ bạn tìm hiểu về học phí của ngành Khoa học Máy tính (mã ngành 106) thuộc chương trình Tiêu chuẩn.\n\nDựa trên dữ liệu ",
+          "answer_len": 1241,
+          "confidence": 0.9,
+          "question_id": "q_a8ab9350",
+          "marked_correct": true,
+          "timings": {
+            "query_rewrite": 1.704,
+            "retrieve": 1.297,
+            "evaluate_results": 0.0,
+            "generate": 1.806,
+            "self_reflect": 0.963,
+            "total": 5.778
+          },
+          "returned_complete": true
+        }
+      ],
+      "marked_correct": true
+    },
+    {
+      "id": "t13",
+      "type": "memory",
+      "ok": true,
+      "turns": [
+        {
+          "query": "Mã ngành 112 là ngành gì?",
+          "ok": true,
+          "reasons": [],
+          "elapsed": 5.619,
+          "answer_preview": "Chào bạn, mình là BkAI – cố vấn tuyển sinh của Trường Đại học Bách khoa (ĐHQG-HCM). Rất vui được hỗ trợ bạn tìm hiểu thông tin về trường mình!\n\nVề câu hỏi của bạn, mã ngành **112** tại trường Đại học Bách khoa – ĐHQG-HCM",
+          "answer_len": 1047,
+          "confidence": 1.0,
+          "question_id": "q_eaff18a6",
+          "marked_correct": true,
+          "timings": {
+            "query_rewrite": 1.433,
+            "retrieve": 1.348,
+            "evaluate_results": 0.0,
+            "generate": 1.712,
+            "self_reflect": 1.022,
+            "total": 5.525
+          },
+          "returned_complete": true
+        },
+        {
+          "query": "Ngành đó điểm chuẩn TH 2025 cao không?",
+          "ok": true,
+          "reasons": [],
+          "elapsed": 6.493,
+          "answer_preview": "Chào bạn, mình rất vui được hỗ trợ bạn giải đáp thắc mắc về ngành Dệt - May (mã ngành 112) tại Trường Đại học Bách khoa – ĐHQG-HCM.\n\nVề câu hỏi của bạn, điểm chuẩn phương thức **Xét tuyển Tổng hợp năm 2025** của ngành Dệ",
+          "answer_len": 1810,
+          "confidence": 1.0,
+          "question_id": "q_97aae622",
+          "marked_correct": true,
+          "timings": {
+            "query_rewrite": 1.767,
+            "retrieve": 1.335,
+            "evaluate_results": 0.0,
+            "generate": 2.524,
+            "self_reflect": 0.834,
+            "total": 6.469
+          },
+          "returned_complete": true
+        }
+      ],
+      "marked_correct": true
+    },
+    {
+      "id": "t14",
+      "type": "memory",
+      "ok": true,
+      "turns": [
+        {
+          "query": "KHMT mã ngành bao nhiêu ở chương trình tiêu chuẩn?",
+          "ok": true,
+          "reasons": [],
+          "elapsed": 5.371,
+          "answer_preview": "Chào bạn, mình là BkAI, rất vui được hỗ trợ bạn tìm hiểu thông tin tuyển sinh tại Trường Đại học Bách khoa – ĐHQG-HCM.\n\nĐối với ngành **Khoa học Máy tính** thuộc **chương trình Tiêu chuẩn (hệ chính quy)**, mã ngành là **",
+          "answer_len": 1008,
+          "confidence": 1.0,
+          "question_id": "q_6822b041",
+          "marked_correct": true,
+          "timings": {
+            "query_rewrite": 1.329,
+            "retrieve": 1.327,
+            "evaluate_results": 0.0,
+            "generate": 1.759,
+            "self_reflect": 0.838,
+            "total": 5.261
+          },
+          "returned_complete": true
+        },
+        {
+          "query": "Chỉ tiêu ngành đó năm 2026?",
+          "ok": true,
+          "reasons": [],
+          "elapsed": 4.818,
+          "answer_preview": "Chào bạn, mình là BkAI đây! Rất vui được tiếp tục hỗ trợ bạn.\n\nNhư mình đã chia sẻ ở trên, chỉ tiêu tuyển sinh năm 2026 cho ngành **Khoa học Máy tính (mã ngành 106)** thuộc chương trình Tiêu chuẩn là **240 chỉ tiêu**.\n\nĐ",
+          "answer_len": 488,
+          "confidence": 1.0,
+          "question_id": "q_dd9e00ef",
+          "marked_correct": true,
+          "timings": {
+            "query_rewrite": 1.427,
+            "retrieve": 1.308,
+            "evaluate_results": 0.0,
+            "generate": 1.178,
+            "self_reflect": 0.88,
+            "total": 4.801
+          },
+          "returned_complete": true
+        }
+      ],
+      "marked_correct": true
+    },
+    {
+      "id": "t15",
+      "type": "counselor",
+      "ok": true,
+      "turns": [],
+      "marked_correct": true,
+      "reasons": [],
+      "elapsed": 2.082,
+      "answer_preview": "Để tư vấn lộ trình nộp nguyện vọng phù hợp nhất, bạn vui lòng chia sẻ thêm về điểm số (THPT hoặc ĐGNL), ngành học bạn quan tâm và phương thức xét tuyển bạn dự định sử dụng nhé?\n\n_Mình cần thêm thông tin này để tư vấn sát",
+      "answer_len": 269,
+      "confidence": 1.0,
+      "cached": false,
+      "counselor_action": "ASK_CLARIFY",
+      "question_id": "q_841d195b",
+      "timings": {
+        "query_rewrite": 1.978,
+        "generate": 0.0,
+        "self_reflect": 0.0,
+        "total": 1.983
+      },
+      "returned_complete": true
+    },
+    {
+      "id": "t16",
+      "type": "doc",
+      "ok": true,
+      "turns": [],
+      "marked_correct": true,
+      "reasons": [],
+      "elapsed": 4.327,
+      "answer_preview": "Chào bạn, mình là BkAI – cố vấn tuyển sinh của Trường Đại học Bách khoa (HCMUT). Rất vui được hỗ trợ bạn tìm hiểu về trường mình!\n\nVề câu hỏi của bạn, Trường Đại học Bách khoa – ĐHQG-HCM hiện có **02 cơ sở đào tạo chính*",
+      "answer_len": 933,
+      "confidence": 0.85,
+      "cached": false,
+      "counselor_action": "RETRIEVE",
+      "question_id": "q_33d7e553",
+      "timings": {
+        "query_rewrite": 1.595,
+        "retrieve": 1.16,
+        "evaluate_results": 0.0,
+        "generate": 1.459,
+        "self_reflect": 0.0,
+        "total": 4.221
+      },
+      "returned_complete": true
+    },
+    {
+      "id": "t17",
+      "type": "factual",
+      "ok": true,
+      "turns": [],
+      "marked_correct": true,
+      "reasons": [],
+      "elapsed": 5.722,
+      "answer_preview": "Chào bạn, mình là BkAI – cố vấn tuyển sinh của Trường Đại học Bách khoa – ĐHQG-HCM. Rất vui được hỗ trợ bạn tìm hiểu thông tin về trường!\n\nVề câu hỏi của bạn, điểm chuẩn theo phương thức xét tuyển kết quả thi tốt nghiệp ",
+      "answer_len": 721,
+      "confidence": 1.0,
+      "cached": false,
+      "counselor_action": "RETRIEVE",
+      "question_id": "q_46d7d34d",
+      "timings": {
+        "query_rewrite": 1.768,
+        "retrieve": 1.353,
+        "evaluate_results": 0.0,
+        "generate": 1.44,
+        "self_reflect": 1.04,
+        "total": 5.607
+      },
+      "returned_complete": true
+    },
+    {
+      "id": "t18",
+      "type": "doc",
+      "ok": true,
+      "turns": [],
+      "marked_correct": true,
+      "reasons": [],
+      "elapsed": 4.752,
+      "answer_preview": "Chào bạn, mình là BkAI – cố vấn tuyển sinh của Trường Đại học Bách khoa (ĐHQG-HCM). Rất vui được hỗ trợ bạn tìm hiểu về các chính sách hỗ trợ tài chính tại trường mình!\n\nVề thắc mắc của bạn đối với **Quỹ Hỗ trợ Sinh viên",
+      "answer_len": 1408,
+      "confidence": 0.85,
+      "cached": false,
+      "counselor_action": "RETRIEVE",
+      "question_id": "q_6d6a5d3d",
+      "timings": {
+        "query_rewrite": 1.563,
+        "retrieve": 1.206,
+        "evaluate_results": 0.0,
+        "generate": 1.85,
+        "self_reflect": 0.0,
+        "total": 4.626
+      },
+      "returned_complete": true
+    },
+    {
+      "id": "t19",
+      "type": "voice",
+      "ok": true,
+      "turns": [],
+      "marked_correct": true,
+      "reasons": [],
+      "elapsed": 45.34,
+      "answer_preview": "Chào bạn, mình là BkAI – cố vấn tuyển sinh của Trường Đại học Bách khoa – ĐHQG-HCM. Rất vui được hỗ trợ bạn tìm hiểu thông tin về ngành Khoa học Máy tính.\n\nVề câu hỏi của bạn, điểm chuẩn phương thức xét tuyển theo kết qu",
+      "answer_len": 1406,
+      "audio_ok": true,
+      "audio_bytes": 592848,
+      "question_id": "q_c781dd72",
+      "returned_complete": true
+    },
+    {
+      "id": "t20",
+      "type": "voice",
+      "ok": true,
+      "turns": [],
+      "marked_correct": true,
+      "reasons": [],
+      "elapsed": 16.161,
+      "answer_preview": "Chào bạn, mình là BkAI đây. Trường Đại học Bách khoa có đào tạo chương trình dạy và học bằng tiếng Anh với 30 ngành chuyên ngành, học phí khoảng 44 triệu đồng một học kỳ và học tại Cơ sở 1. Để mình tư vấn kỹ hơn cho bạn,",
+      "answer_len": 295,
+      "audio_ok": true,
+      "audio_bytes": 108144,
+      "question_id": "q_2273a73f",
+      "returned_complete": true
+    }
+  ]
+}

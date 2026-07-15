@@ -1,0 +1,305 @@
+[
+  {
+    "id": "t01",
+    "type": "factual",
+    "session": "demo-t01",
+    "query": "Điểm chuẩn xét tuyển tổng hợp (TH) năm 2025 ngành Khoa học Máy tính mã 106 là bao nhiêu?",
+    "expect_any": [
+      "85.41",
+      "85,41",
+      "85.4"
+    ],
+    "expect_all": [
+      "106"
+    ]
+  },
+  {
+    "id": "t02",
+    "type": "factual",
+    "session": "demo-t02",
+    "query": "Chỉ tiêu tuyển sinh 2026 ngành Khoa học Máy tính mã 106 là bao nhiêu?",
+    "expect_any": [
+      "240"
+    ],
+    "expect_all": [
+      "106"
+    ]
+  },
+  {
+    "id": "t03",
+    "type": "factual",
+    "session": "demo-t03",
+    "query": "Điểm chuẩn TH 2025 ngành Kỹ thuật Máy tính mã 107?",
+    "expect_any": [
+      "82.91",
+      "82,91",
+      "82.9"
+    ],
+    "expect_all": [
+      "107"
+    ]
+  },
+  {
+    "id": "t04",
+    "type": "factual",
+    "session": "demo-t04",
+    "query": "Mã ngành 112 là ngành gì và điểm chuẩn TH 2025?",
+    "expect_any": [
+      "Dệt",
+      "May",
+      "60.75",
+      "60,75"
+    ],
+    "expect_all": [
+      "112"
+    ]
+  },
+  {
+    "id": "t05",
+    "type": "factual",
+    "session": "demo-t05",
+    "query": "Điểm chuẩn TH 2025 ngành Kỹ thuật Cơ khí mã 109?",
+    "expect_any": [
+      "75.43",
+      "75,43",
+      "75.4"
+    ],
+    "expect_all": [
+      "109"
+    ]
+  },
+  {
+    "id": "t06",
+    "type": "factual",
+    "session": "demo-t06",
+    "query": "Điểm chuẩn TH 2025 ngành Kỹ thuật Cơ Điện tử mã 110?",
+    "expect_any": [
+      "81.82",
+      "81,82",
+      "81.8"
+    ],
+    "expect_all": [
+      "110"
+    ]
+  },
+  {
+    "id": "t07",
+    "type": "factual",
+    "session": "demo-t07",
+    "query": "Chỉ tiêu 2026 nhóm ngành Điện - Điện tử mã 108 khoảng bao nhiêu?",
+    "expect_any": [
+      "670"
+    ],
+    "expect_all": [
+      "108"
+    ]
+  },
+  {
+    "id": "t08",
+    "type": "factual",
+    "session": "demo-t08",
+    "query": "Điểm chuẩn TH 2025 ngành Khoa học Dữ liệu mã 146?",
+    "expect_any": [
+      "83.85",
+      "83,85",
+      "83.8"
+    ],
+    "expect_all": [
+      "146"
+    ]
+  },
+  {
+    "id": "t09",
+    "type": "doc",
+    "session": "demo-t09",
+    "query": "IELTS bao nhiêu để quy đổi điểm môn tiếng Anh khi xét tuyển HCMUT?",
+    "expect_any": [
+      "5.0",
+      "5,0",
+      "IELTS"
+    ],
+    "expect_all": []
+  },
+  {
+    "id": "t10",
+    "type": "doc",
+    "session": "demo-t10",
+    "query": "Công thức xét tuyển tổng hợp tại Bách khoa gồm những thành phần nào?",
+    "expect_any": [
+      "ĐGNL",
+      "70%",
+      "học bạ",
+      "THPT"
+    ],
+    "expect_all": []
+  },
+  {
+    "id": "t11",
+    "type": "guardrail",
+    "session": "demo-t11",
+    "query": "So sánh điểm chuẩn Bách khoa Hà Nội với Bách khoa TP.HCM giúp mình.",
+    "expects_reject": true,
+    "expect_any": [
+      "HCMUT",
+      "Bách khoa",
+      "không",
+      "chỉ hỗ trợ",
+      "TP.HCM",
+      "Hồ Chí Minh"
+    ]
+  },
+  {
+    "id": "t12",
+    "type": "memory",
+    "session": "demo-mem-12",
+    "turns": [
+      {
+        "query": "Điểm chuẩn TH 2025 ngành Khoa học Máy tính mã 106?",
+        "expect_any": [
+          "85.41",
+          "85,41",
+          "85.4",
+          "106"
+        ]
+      },
+      {
+        "query": "Còn học phí chương trình đó thì sao?",
+        "expect_any": [
+          "học phí",
+          "Học phí",
+          "triệu",
+          "VNĐ",
+          "đồng",
+          "tín chỉ"
+        ],
+        "memory_must_not_ask_major": true
+      }
+    ]
+  },
+  {
+    "id": "t13",
+    "type": "memory",
+    "session": "demo-mem-13",
+    "turns": [
+      {
+        "query": "Mã ngành 112 là ngành gì?",
+        "expect_any": [
+          "Dệt",
+          "May",
+          "112"
+        ]
+      },
+      {
+        "query": "Ngành đó điểm chuẩn TH 2025 cao không?",
+        "expect_any": [
+          "60.75",
+          "60,75",
+          "60.7",
+          "112",
+          "Dệt",
+          "May"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "t14",
+    "type": "memory",
+    "session": "demo-mem-14",
+    "turns": [
+      {
+        "query": "KHMT mã ngành bao nhiêu ở chương trình tiêu chuẩn?",
+        "expect_any": [
+          "106",
+          "Khoa học Máy tính"
+        ]
+      },
+      {
+        "query": "Chỉ tiêu ngành đó năm 2026?",
+        "expect_any": [
+          "240",
+          "106"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "t15",
+    "type": "counselor",
+    "session": "demo-t15",
+    "query": "Tư vấn giúp mình nên nộp nguyện vọng thế nào tại HCMUT.",
+    "expect_clarify_or_ask": true,
+    "expect_any": [
+      "điểm",
+      "ngành",
+      "ĐGNL",
+      "sở thích",
+      "phương thức",
+      "?"
+    ]
+  },
+  {
+    "id": "t16",
+    "type": "doc",
+    "session": "demo-t16",
+    "query": "Trường ĐH Bách khoa có mấy cơ sở chính và ở đâu?",
+    "expect_any": [
+      "Lý Thường Kiệt",
+      "Dĩ An",
+      "268"
+    ]
+  },
+  {
+    "id": "t17",
+    "type": "factual",
+    "session": "demo-t17",
+    "query": "Điểm chuẩn TH 2025 chương trình tiếng Anh Khoa học Máy tính mã 206?",
+    "expect_any": [
+      "83.74",
+      "83,74",
+      "83.7",
+      "206"
+    ],
+    "soft_any": [
+      "Khoa học Máy tính",
+      "tiếng Anh",
+      "Tiếng Anh"
+    ]
+  },
+  {
+    "id": "t18",
+    "type": "doc",
+    "session": "demo-t18",
+    "query": "Quỹ CK82 hỗ trợ sinh viên Bách khoa như thế nào?",
+    "expect_any": [
+      "CK82",
+      "0%",
+      "học phí",
+      "vay"
+    ]
+  },
+  {
+    "id": "t19",
+    "type": "voice",
+    "session": "demo-voice-19",
+    "query": "Điểm chuẩn TH 2025 ngành Khoa học Máy tính mã 106?",
+    "expect_any": [
+      "85.41",
+      "85,41",
+      "85.4",
+      "106"
+    ]
+  },
+  {
+    "id": "t20",
+    "type": "voice",
+    "session": "demo-voice-20",
+    "query": "HCMUT có chương trình dạy bằng tiếng Anh không?",
+    "expect_any": [
+      "tiếng Anh",
+      "Tiếng Anh",
+      "IELTS",
+      "chương trình"
+    ]
+  }
+]
