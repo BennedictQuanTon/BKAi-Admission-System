@@ -29,6 +29,7 @@ httpx>=0.28.0
 beautifulsoup4>=4.12.0
 websockets>=14.0
 python-multipart>=0.0.12
+livekit-api>=1.0.0
 
 # ===== Text Processing =====
 markdown>=3.7
@@ -43,6 +44,10 @@ structlog>=24.0.0
 # ===== Audio & Voice =====
 faster-whisper>=1.0.0
 edge-tts>=7.0.0
+livekit>=1.0.0
+livekit-agents[silero,deepgram]>=1.5.0
+livekit-plugins-deepgram>=1.0.0
+av>=12.0.0
 
 # ===== Evaluation =====
 ragas>=0.2.0

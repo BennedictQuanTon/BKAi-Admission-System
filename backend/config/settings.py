@@ -118,6 +118,30 @@ class AppSettings(BaseSettings):
     name: str = "BkAI"
 
 
+class LiveKitSettings(BaseSettings):
+    model_config = SettingsConfigDict(env_prefix="LIVEKIT_")
+
+    url: str = ""
+    api_key: str = ""
+    api_secret: str = ""
+
+    @property
+    def enabled(self) -> bool:
+        return bool(self.url and self.api_key and self.api_secret)
+
+
+class DeepgramSettings(BaseSettings):
+    model_config = SettingsConfigDict(env_prefix="DEEPGRAM_")
+
+    api_key: str = ""
+    stt_model: str = "nova-3"
+    language: str = "vi"
+
+    @property
+    def enabled(self) -> bool:
+        return bool(self.api_key)
+
+
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(
         env_file=str(BACKEND_DIR / ".env"),
@@ -136,6 +160,8 @@ class Settings(BaseSettings):
     guardrails: GuardrailsSettings = Field(default_factory=GuardrailsSettings)
     api: APISettings = Field(default_factory=APISettings)
     app: AppSettings = Field(default_factory=AppSettings)
+    livekit: LiveKitSettings = Field(default_factory=LiveKitSettings)
+    deepgram: DeepgramSettings = Field(default_factory=DeepgramSettings)
 
     @property
     def data_dir(self) -> Path:

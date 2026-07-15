@@ -1,7 +1,14 @@
 import { FormEvent, useEffect, useRef, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
-import { ChatMetadata, sendFeedback, WS_BASE, getSessionId } from "../lib/api";
+import {
+  ChatMetadata,
+  sendFeedback,
+  WS_BASE,
+  getSessionId,
+  newSessionId,
+  clearServerSession,
+} from "../lib/api";
 
 type Message = {
   id: string;
@@ -23,7 +30,7 @@ export default function ChatPage() {
   const [input, setInput] = useState("");
   const [status, setStatus] = useState("");
   const [loading, setLoading] = useState(false);
-  const [sessionId] = useState(() => getSessionId());
+  const [sessionId, setSessionId] = useState(() => getSessionId());
   const wsRef = useRef<WebSocket | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
 
@@ -39,6 +46,15 @@ export default function ChatPage() {
     return () => ws.close();
   }, []);
 
+  async function startNewChat() {
+    await clearServerSession(sessionId);
+    const sid = newSessionId();
+    setSessionId(sid);
+    setMessages([]);
+    setInput("");
+    setStatus("");
+    setLoading(false);
+  }
   async function submitQuery(query: string) {
     if (!query.trim() || loading) return;
 
@@ -151,6 +167,17 @@ export default function ChatPage() {
 
   return (
     <div className="flex-1 min-h-0 flex flex-col overflow-hidden">
+      {messages.length > 0 && (
+        <div className="px-4 pt-3 max-w-5xl w-full mx-auto flex justify-end">
+          <button
+            type="button"
+            onClick={startNewChat}
+            className="text-sm font-semibold text-slate-600 hover:text-brand-700 px-3 py-1.5 rounded-lg border border-slate-200/80 bg-white/70 backdrop-blur-sm"
+          >
+            Chat mới
+          </button>
+        </div>
+      )}
       <div className={`flex-1 min-h-0 px-4 py-6 max-w-5xl w-full mx-auto ${
         messages.length === 0
           ? "overflow-hidden flex flex-col justify-center"
@@ -206,10 +233,10 @@ export default function ChatPage() {
             {/* Center Welcome Text */}
             <div className="text-center relative z-10 px-4 max-w-3xl mx-auto mb-10 lg:mb-0">
               <h1 className="font-display text-5xl md:text-6xl lg:text-7xl font-black tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-brand-600 via-indigo-600 to-blue-500 mb-6 leading-tight">
-                Xin chào, tôi là BKAi
+                Xin chào, mình là BKAi
               </h1>
               <p className="text-slate-500 font-semibold text-base md:text-lg lg:text-xl max-w-2xl mx-auto leading-relaxed">
-                Hỏi tôi về tuyển sinh, ngành học, học phí, điểm chuẩn tại HCMUT
+                Cố vấn tuyển sinh HCMUT — hỏi điểm chuẩn, ngành học, học phí; mình nhớ ngữ cảnh trong đoạn chat này
               </p>
             </div>
 

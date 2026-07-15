@@ -1,5 +1,5 @@
 """
-BkAI Answer Generator — Gemini Flash with token streaming.
+BkAI Answer Generator — counselor-aware, chat vs voice channels.
 """
 
 from __future__ import annotations
@@ -9,7 +9,14 @@ import time
 from langchain_core.messages import HumanMessage
 
 from agents.state import AgentState
-from config.prompts import ANSWER_GENERATION_PROMPT
+from config.prompts import (
+    ANSWER_GENERATION_PROMPT,
+    ANSWER_GENERATION_VOICE_PROMPT,
+    COUNSELOR_PERSONA,
+    MODE_ADVISE,
+    MODE_CLARIFY,
+    MODE_RETRIEVE,
+)
 from services.llm_factory import acquire_rpm_slot, get_primary_llm
 from services.stream_context import emit_token
 from utils.logger import AgentTracer
@@ -23,19 +30,52 @@ async def generate_answer_node(state: AgentState) -> dict:
     t0 = time.time()
     session_id = state.get("session_id", "")
     query_id = state.get("query_id", "")
+    channel = state.get("channel", "chat")
+    action = (state.get("counselor_action") or "RETRIEVE").upper()
 
     stream_progress(
         session_id=session_id,
         query_id=query_id,
         step="generate",
         status="running",
-        message="Synthesizing response and generating answer using LLM...",
+        message="Counselor generating answer...",
     )
-    tracer.start("generate")
+    tracer.start("generate", channel=channel, action=action)
 
-    query = state["original_query"]
+    query = state.get("resolved_query") or state["original_query"]
     context = state.get("retrieval_context", "Không có dữ liệu liên quan.")
     history = state.get("chat_history", [])
+    profile = state.get("student_profile", {})
+
+    if action == "ASK_CLARIFY":
+        clarify = state.get("clarify_question") or (
+            "Bạn cho mình biết thêm điểm số (hoặc ĐGNL) và ngành bạn đang quan tâm được không?"
+        )
+        if channel == "voice":
+            answer = clarify
+        else:
+            answer = (
+                f"{clarify}\n\n"
+                "_Mình cần thêm thông tin này để tư vấn sát hơn — không bắt buộc nếu bạn chưa muốn chia sẻ._"
+            )
+        elapsed = time.time() - t0
+        stream_progress(
+            session_id=session_id,
+            query_id=query_id,
+            step="generate",
+            status="done",
+            message=f"Clarify question returned ({elapsed:.2f}s).",
+            elapsed=round(elapsed, 3),
+        )
+        return {
+            "generated_answer": answer,
+            "current_step": "generate",
+            "iteration_count": state.get("iteration_count", 0) + 1,
+            "step_timings": {
+                **state.get("step_timings", {}),
+                "generate": round(elapsed, 3),
+            },
+        }
 
     history_str = ""
     if history:
@@ -45,10 +85,21 @@ async def generate_answer_node(state: AgentState) -> dict:
             parts.append(f"{role}: {turn.get('content', '')}")
         history_str = "\n".join(parts)
 
-    prompt = ANSWER_GENERATION_PROMPT.format(
+    profile_str = "chưa có"
+    if isinstance(profile, dict) and profile:
+        from memory.student_profile import StudentProfile
+
+        profile_str = StudentProfile.model_validate(profile).summary_vi()
+
+    mode_instruction = MODE_ADVISE if action == "ADVISE" else MODE_RETRIEVE
+    template = ANSWER_GENERATION_VOICE_PROMPT if channel == "voice" else ANSWER_GENERATION_PROMPT
+    prompt = template.format(
+        persona=COUNSELOR_PERSONA,
         context=context,
+        profile=profile_str,
         chat_history=history_str or "Không có lịch sử hội thoại.",
         question=query,
+        mode_instruction=mode_instruction,
     )
 
     answer = ""
@@ -77,8 +128,8 @@ async def generate_answer_node(state: AgentState) -> dict:
     except Exception as e:
         tracer.error("generate", error=str(e))
         answer = (
-            "Xin lỗi, tôi gặp sự cố khi xử lý câu hỏi của bạn. "
-            "Vui lòng thử lại sau."
+            "Xin lỗi, mình gặp sự cố khi xử lý câu hỏi của bạn. "
+            "Bạn thử lại giúp mình nhé."
         )
 
     elapsed = time.time() - t0
@@ -89,7 +140,7 @@ async def generate_answer_node(state: AgentState) -> dict:
         query_id=query_id,
         step="generate",
         status="done",
-        message=f"Answer generation completed in {elapsed:.2f}s. Answer length: {len(answer)} chars.",
+        message=f"Answer generation completed in {elapsed:.2f}s.",
         elapsed=round(elapsed, 3),
     )
 

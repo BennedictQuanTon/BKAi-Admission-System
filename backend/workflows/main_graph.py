@@ -1,5 +1,5 @@
 """
-BkAI Main LangGraph Workflow.
+BkAI Main LangGraph Workflow — Agentic RAG + counselor policy.
 """
 
 from __future__ import annotations
@@ -31,7 +31,16 @@ def build_graph() -> StateGraph:
     graph.add_node("self_reflect", self_reflect_node)
 
     graph.set_entry_point("query_rewrite")
-    graph.add_edge("query_rewrite", "retrieve")
+
+    graph.add_conditional_edges(
+        "query_rewrite",
+        _route_after_rewrite,
+        {
+            "clarify": "generate",
+            "retrieve": "retrieve",
+        },
+    )
+
     graph.add_edge("retrieve", "evaluate_results")
 
     graph.add_conditional_edges(
@@ -52,6 +61,13 @@ def build_graph() -> StateGraph:
     )
 
     return graph
+
+
+def _route_after_rewrite(state: AgentState) -> Literal["clarify", "retrieve"]:
+    action = (state.get("counselor_action") or "RETRIEVE").upper()
+    if action == "ASK_CLARIFY":
+        return "clarify"
+    return "retrieve"
 
 
 def _route_after_evaluation(state: AgentState) -> Literal["sufficient", "need_more"]:
@@ -77,21 +93,29 @@ async def run_agent_pipeline(
     session_id: str = "default",
     chat_history: list[dict[str, str]] | None = None,
     query_id: str = "",
+    channel: str = "chat",
 ) -> dict:
     t0 = time.time()
-    tracer.start("pipeline", query=query[:80], session_id=session_id)
+    tracer.start("pipeline", query=query[:80], session_id=session_id, channel=channel)
 
     memory = get_conversation_memory()
     if chat_history is None:
         chat_history = memory.get_history(session_id)
+    profile = memory.get_profile(session_id).model_dump()
 
     initial_state: AgentState = {
         "original_query": query,
         "chat_history": chat_history,
         "session_id": session_id,
         "query_id": query_id,
+        "channel": channel if channel in {"chat", "voice"} else "chat",
+        "student_profile": profile,
+        "resolved_query": query,
         "rewritten_queries": [],
         "hyde_document": "",
+        "counselor_action": "RETRIEVE",
+        "clarify_question": "",
+        "profile_patch": {},
         "search_results": [],
         "reranked_results": [],
         "retrieval_context": "",
@@ -115,8 +139,8 @@ async def run_agent_pipeline(
         final_state = {
             **initial_state,
             "generated_answer": (
-                "Xin lỗi, tôi gặp sự cố khi xử lý câu hỏi. "
-                "Vui lòng thử lại."
+                "Xin lỗi, mình gặp sự cố khi xử lý câu hỏi. "
+                "Bạn vui lòng thử lại nhé."
             ),
             "answer_confidence": 0.0,
             "error": str(e),
@@ -133,6 +157,8 @@ async def run_agent_pipeline(
         "confidence": final_state.get("answer_confidence", 0.0),
         "issues": final_state.get("answer_issues", []),
         "rewritten_queries": final_state.get("rewritten_queries", []),
+        "resolved_query": final_state.get("resolved_query", query),
+        "counselor_action": final_state.get("counselor_action", ""),
         "retrieval_decision": final_state.get("retrieval_decision", ""),
         "timings": {
             **final_state.get("step_timings", {}),
@@ -144,4 +170,5 @@ async def run_agent_pipeline(
             for r in final_state.get("reranked_results", [])[:5]
         ],
         "session_id": session_id,
+        "channel": channel,
     }

@@ -96,3 +96,6 @@ coverage/
 .mypy_cache/
 .ruff_cache/
 htmlcov/
+
+#===== Voice Agent =====
+Voice_Agent_Images

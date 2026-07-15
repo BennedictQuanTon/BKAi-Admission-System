@@ -43,7 +43,28 @@ async def self_reflect_node(state: AgentState) -> dict:
 
     answer = state.get("generated_answer", "")
     context = state.get("retrieval_context", "")
-    query = state["original_query"]
+    query = state.get("resolved_query") or state["original_query"]
+    action = (state.get("counselor_action") or "").upper()
+
+    if action == "ASK_CLARIFY":
+        elapsed = time.time() - t0
+        stream_progress(
+            session_id=session_id,
+            query_id=query_id,
+            step="self_reflect",
+            status="done",
+            message="Self-reflection skipped (clarify turn).",
+            elapsed=round(elapsed, 3),
+        )
+        return {
+            "answer_confidence": 1.0,
+            "answer_issues": [],
+            "current_step": "self_reflect",
+            "step_timings": {
+                **state.get("step_timings", {}),
+                "self_reflect": round(elapsed, 3),
+            },
+        }
 
     if not answer:
         stream_progress(
@@ -130,6 +151,10 @@ async def self_reflect_node(state: AgentState) -> dict:
 
 
 def should_retry(state: AgentState) -> str:
+    if (state.get("counselor_action") or "").upper() == "ASK_CLARIFY":
+        return "accept"
+    if (state.get("channel") or "chat") == "voice":
+        return "accept"
     confidence = state.get("answer_confidence", 1.0)
     iterations = state.get("iteration_count", 0)
 

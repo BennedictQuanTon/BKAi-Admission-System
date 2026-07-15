@@ -1,8 +1,8 @@
-# BKAi — Agentic RAG for Ho Chi Minh City University of Technology (HCMUT) Admissions
+# BKAi — Multi-Agent Admissions Counseling System (HCMUT)
 
-> **In-Depth Technical Report - Intelligent AI Admission Consulting System**<br/>
+> **In-Depth Technical Report - Multi-Agent Admissions Counseling System**<br/>
 > **Developed by:** Long Quan Ton<br/>
-> **Objective:** Production-ready, Agentic RAG System, Multi-Agent LangGraph orchestration, Hybrid Search, and Redis Vector Semantic Caching.<br/>
+> **Objective:** Production-shaped Agentic RAG + conversational counselor (chat & voice), Hybrid Search, Redis Vector Semantic Caching.<br/>
 > **Version:** 3.0.0
 
 ---
@@ -76,7 +76,7 @@ The system is built on a modular Microservices architecture, structured to decou
 ```text
 bkai2/
 ├── backend/            # Python backend (FastAPI, LangGraph, ChromaDB)
-│   ├── agents/         # LangGraph nodes (Query Rewriter, Retriever, Generator, Reflection, State)
+│   ├── agents/         # LangGraph nodes + LiveKit voice worker (voice_livekit.py)
 │   ├── api/            # API schemas, WebSocket handler, and REST routes
 │   ├── config/         # System settings (Pydantic) and prompt templates
 │   ├── data/           # Raw and processed knowledge base data
@@ -85,17 +85,17 @@ bkai2/
 │   │   ├── pdf/        # PDF documents (Official announcements)
 │   │   ├── docx/       # Microsoft Word files (Admissions guidelines)
 │   │   └── processed/  # Serialized indices (BM25 indexes)
-│   ├── evaluation/     # RAGAS evaluation suite and golden QA datasets
+│   ├── evaluation/     # Golden QA + counselor multi-turn dialogues
 │   ├── ingestion/      # Data pipeline (Loader, Metadata Tagger, Chunker, Embedder)
-│   ├── memory/         # Vector DB persistence and Redis cache connectors
-│   ├── services/       # Core services (Guardrails, Audio/Voice service, LLM Factory)
-│   ├── tools/          # Retrieval tools (Hybrid Search, Reranker, BM25)
-│   ├── utils/          # Vietnamese text helpers, logger, and input sanitizers
-│   ├── workflows/      # LangGraph orchestrator graph (main_graph.py)
-│   ├── Dockerfile      # Backend service container definition
-│   ├── ingest.py       # CLI ingestion orchestrator
-│   └── main.py         # Entry point for the FastAPI server (lifespan manager)
-├── frontend/           # Unified client UI: Chat, Voice, and Dashboard (Vite + React + TS)
+│   ├── memory/         # Vector DB, Redis cache, session conversation memory
+│   ├── services/       # Guardrails, Audio/Voice, LLM Factory
+│   ├── tools/          # Hybrid Search, Reranker, BM25
+│   ├── utils/          # Vietnamese helpers, logger, sanitizers
+│   ├── workflows/      # LangGraph orchestrator (counselor + Agentic RAG)
+│   ├── Dockerfile
+│   ├── ingest.py
+│   └── main.py
+├── frontend/           # Chat, Voice, Dashboard (Vite + React + TS)
 │   ├── src/            # React codebase (App router, components, pages)
 │   ├── Dockerfile      # Multi-stage production build (Vite -> Nginx)
 │   ├── nginx.conf      # SPA routing rules for Nginx
@@ -121,7 +121,7 @@ BKAi optimizes cost, rate limits, and latency by implementing a **Model Routing*
 *   **Core LLMs & Routing:** Google Gemini 3.1 Flash-Lite (API-driven).
 *   **Vector Engine:** ChromaDB (Local dense store).
 *   **Caching & Telemetry:** Redis 7 / Redis Stack (HNSW vector caching & JSON stats).
-*   **Voice Processing:** `faster-whisper` (Local Speech-to-Text) & `edge-tts` (Neural Text-to-Speech).
+*   **Voice Processing:** `faster-whisper` (local STT fallback) & `edge-tts` (Vietnamese TTS). LiveKit worker at `backend/agents/voice_livekit.py` prefers **Deepgram Nova STT** (`vi`) when `DEEPGRAM_API_KEY` is set; TTS stays edge-tts.
 *   **Frontend UI:** React 19, TypeScript, Vite, TailwindCSS v4, Recharts, Chart.js.
 
 ### Model Routing & Rate Limiting Strategy:
