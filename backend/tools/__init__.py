@@ -1,12 +1,11 @@
 """
 BKAi Tools Package.
 
-Provides search, retrieval, and external tool integrations:
+Provides search and retrieval integrations:
 - vector_search: Semantic similarity via ChromaDB
 - bm25_search: Lexical keyword matching via BM25
 - hybrid_search: Combined semantic + lexical with RRF fusion
 - reranker: Cross-encoder second-stage reranking
-- web_search: Domain-restricted web scraping fallback
 """
 
 from tools.vector_search import SearchResult, vector_search

@@ -99,19 +99,6 @@ class GuardrailsSettings(BaseSettings):
     allowed_scope: str = "HCMUT_ADMISSIONS"
 
 
-class MCPSettings(BaseSettings):
-    model_config = SettingsConfigDict(env_prefix="MCP_")
-
-    scraper_enabled: bool = True
-    scraper_allowed_domains: str = "hcmut.edu.vn,www.hcmut.edu.vn"
-    max_pages: int = 2
-    timeout: int = 10
-
-    @property
-    def allowed_domain_list(self) -> list[str]:
-        return [d.strip() for d in self.scraper_allowed_domains.split(",") if d.strip()]
-
-
 class APISettings(BaseSettings):
     model_config = SettingsConfigDict(env_prefix="API_")
 
@@ -123,14 +110,6 @@ class APISettings(BaseSettings):
     @property
     def cors_origin_list(self) -> list[str]:
         return [origin.strip() for origin in self.cors_origins.split(",")]
-
-
-class WebSearchSettings(BaseSettings):
-    model_config = SettingsConfigDict(env_prefix="WEB_SEARCH_")
-
-    domain: str = "hcmut.edu.vn"
-    max_results: int = 5
-    timeout: int = 15
 
 
 class AppSettings(BaseSettings):
@@ -155,9 +134,7 @@ class Settings(BaseSettings):
     cache: CacheSettings = Field(default_factory=CacheSettings)
     security: SecuritySettings = Field(default_factory=SecuritySettings)
     guardrails: GuardrailsSettings = Field(default_factory=GuardrailsSettings)
-    mcp: MCPSettings = Field(default_factory=MCPSettings)
     api: APISettings = Field(default_factory=APISettings)
-    web_search: WebSearchSettings = Field(default_factory=WebSearchSettings)
     app: AppSettings = Field(default_factory=AppSettings)
 
     @property

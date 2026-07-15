@@ -184,7 +184,6 @@ Combines runtime history with database caches:
 | **Rate Limiting** | Connection middleware caps requests to 15 per minute per client IP, preventing server overloading. |
 | **CORS Whitelist** | Restricts API access exclusively to trusted origins: `localhost:5173`, `localhost:5174`, `localhost:5175`. |
 | **Domain Guardrails** | Two stages: Regex check against known topics/off-topic triggers, followed by a `gemini-3.1-flash-lite` filter. |
-| **Scraper Sandbox** | The MCP web scraping utility is hardcoded to strictly scan domains within `hcmut.edu.vn` only. |
 
 ---
 
@@ -376,8 +375,6 @@ The primary configurations located in `backend/.env` are:
 | `MAX_INPUT_LENGTH` | `500` | Max character length for user chat questions. |
 | `GUARDRAILS_ENABLED` | `true` | Enables/Disables scope control guardrails. |
 | `GUARDRAILS_ALLOWED_SCOPE` | `HCMUT_ADMISSIONS` | Allowed domain name constraint check (e.g. HCMUT Admissions). |
-| `MCP_SCRAPER_ENABLED` | `true` | Real-time web crawler fallback. |
-| `MCP_SCRAPER_ALLOWED_DOMAINS` | `hcmut.edu.vn,www.hcmut.edu.vn` | Whitelisted scraping domains. |
 | `APP_NAME` | `BkAI` | Branding app name. |
 
 ---

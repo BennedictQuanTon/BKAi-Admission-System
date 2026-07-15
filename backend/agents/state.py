@@ -46,7 +46,6 @@ class AgentState(TypedDict, total=False):
     # ── Control Flow ──
     current_step: str                    # Current agent step name
     error: str | None                    # Error message if any
-    should_web_search: bool              # Whether to trigger web search
     iteration_count: int                 # Total agent loop iterations
 
     # ── Metrics ──

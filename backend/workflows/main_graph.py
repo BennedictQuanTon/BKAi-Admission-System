@@ -102,7 +102,6 @@ async def run_agent_pipeline(
         "answer_issues": [],
         "current_step": "start",
         "error": None,
-        "should_web_search": False,
         "iteration_count": 0,
         "step_timings": {},
     }

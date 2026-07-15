@@ -67,7 +67,7 @@ def create_app() -> FastAPI:
     app = FastAPI(
         title=f"{settings.app.name} — Tư vấn Tuyển sinh Bách Khoa",
         description="Agentic RAG system for HCMUT admissions counseling",
-        version="2.0.0",
+        version="3.0.0",
         lifespan=lifespan,
     )
 

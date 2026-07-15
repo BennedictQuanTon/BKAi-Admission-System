@@ -135,7 +135,6 @@ async def evaluate_results_node(state: AgentState) -> dict:
 
     return {
         "retrieval_decision": decision,
-        "should_web_search": False,
         "current_step": "evaluate_results",
         "step_timings": {
             **state.get("step_timings", {}),
